@@ -626,7 +626,7 @@ function SectionCard({title,accent,children}){return React.createElement('div',{
 const newMat=()=>({name:'',budget:'',escalationPercent:'',anniversaryDate:''});
 const newLab=()=>({name:'',budget:'',escalationPercent:'',anniversaryDate:''});
 const newPhase=()=>({name:'',startDate:'',endDate:'',estimatedHours:'',curveId:'',materials:[newMat()],labors:[newLab()]});
-const defaultForm=()=>({projectName:'',estimateNumber:'',bidTracerNumber:'',date:'',bidDate:'',scheduleStart:'',scheduleEnd:'',phases:[newPhase()]});
+const defaultForm=()=>{const t=new Date().toISOString().slice(0,10);return {projectName:'',estimateNumber:'',bidNumber:'',date:t,bidDate:'',scheduleStart:'',scheduleEnd:'',phases:[newPhase()]};}
 
 /* ── Materials sub-form ── */
 function MaterialsForm({phase,phaseIdx,onChange,bidDate}){
@@ -915,7 +915,7 @@ thead{display:table-header-group}
       <div class="gen">Generated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
     </div>
     <div class="hdr-right">
-      <div><b>Estimate #:</b> ${form.estimateNumber||'—'} &nbsp;|&nbsp; <b>BidTracer #:</b> ${form.bidTracerNumber||'—'}</div>
+      <div><b>Estimate #:</b> ${form.estimateNumber||'—'} &nbsp;|&nbsp; <b>BidTracer #:</b> ${form.bidNumber||'—'}</div>
       <div><b>Date:</b> ${form.date||'—'} &nbsp;|&nbsp; <b>Bid Date:</b> ${form.bidDate||'—'}</div>
     </div>
   </div>
@@ -1093,7 +1093,7 @@ function randomFill(curves){
     phaseStart=addMonths(phaseStart,rand(3,phaseLen));
   }
   const latestPhaseEnd=phases.reduce((latest,p)=>p.endDate>latest?p.endDate:latest,'');
-  return{projectName:projectNames[rand(0,projectNames.length-1)],estimateNumber:'EST-'+rand(1000,9999),bidTracerNumber:'BT-'+rand(10000,99999),date:fmtDate(today),bidDate:fmtDate(bidDate),scheduleStart:fmtDate(scheduleStart),scheduleEnd:latestPhaseEnd,phases};
+  return{projectName:projectNames[rand(0,projectNames.length-1)],estimateNumber:'EST-'+rand(1000,9999),bidNumber:'BT-'+rand(10000,99999),date:fmtDate(today),bidDate:fmtDate(bidDate),scheduleStart:fmtDate(scheduleStart),scheduleEnd:latestPhaseEnd,phases};
 }
 
 /* ── Calculator page ── */
@@ -1176,7 +1176,7 @@ function Calculator({toast,error,user,loadedProject,onProjectLoaded}){
         React.createElement(SectionCard,{title:'Project Info',accent:'#60a5fa'},
           React.createElement('div',{style:{marginBottom:10}},React.createElement(Label,{required:true},'Project Name'),React.createElement(SInput,{value:form.projectName,onChange:e=>setField('projectName',e.target.value),placeholder:'e.g. Main Street Renovation'})),
           React.createElement('div',{style:{marginBottom:10}},React.createElement(Label,{required:true},'Estimate #'),React.createElement(SInput,{value:form.estimateNumber,onChange:e=>setField('estimateNumber',e.target.value),placeholder:'EST-2024-001'})),
-          React.createElement('div',{style:{marginBottom:10}},React.createElement(Label,{required:true},'BidTracer #'),React.createElement(SInput,{value:form.bidTracerNumber,onChange:e=>setField('bidTracerNumber',e.target.value),placeholder:'BT-10042'})),
+          React.createElement('div',{style:{marginBottom:10}},React.createElement(Label,null,'Bid Number'),React.createElement(SInput,{value:form.bidNumber,onChange:e=>setField('bidNumber',e.target.value),placeholder:'BT-10042'})),
           React.createElement('div',{style:g2},
             React.createElement('div',null,React.createElement(Label,{required:true},'Date'),React.createElement(SInput,{type:'date',value:form.date,onChange:e=>setField('date',e.target.value)})),
             React.createElement('div',null,React.createElement(Label,{required:true},'Bid Date'),React.createElement(SInput,{type:'date',value:form.bidDate,onChange:e=>setField('bidDate',e.target.value)}))
