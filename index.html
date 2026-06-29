@@ -1769,14 +1769,14 @@ function Navbar({page,setPage,user,onLogout,onShowProjects,onShowSettings,onShow
   const menuBtnLeave=e=>e.currentTarget.style.background='none';
 
   return React.createElement('nav',{style:{background:'#1e3a5f',boxShadow:'0 1px 4px rgba(0,0,0,0.2)',position:'sticky',top:0,zIndex:100}},
-    React.createElement('div',{style:{maxWidth:1400,margin:'0 auto',padding:'0 20px',display:'flex',alignItems:'center',justifyContent:'space-between',height:64}},
+    React.createElement('div',{style:{width:'100%',padding:'0 20px',display:'flex',alignItems:'center',justifyContent:'space-between',height:64}},
       // Left: logo + title
-      React.createElement('div',{onClick:()=>setPage('calc'),style:{cursor:'pointer',display:'flex',alignItems:'center',gap:12}},
+      React.createElement('div',{onClick:()=>setPage('calc'),style:{cursor:'pointer',display:'flex',alignItems:'center',gap:12,flexShrink:0}},
         React.createElement(LogoDisplay,{size:38}),
         React.createElement('span',{style:{color:'#fff',fontWeight:600,fontSize:16,letterSpacing:'0.02em'}},'Escalation Calculator')
       ),
       // Right: My Projects + user dropdown
-      React.createElement('div',{style:{display:'flex',gap:10,alignItems:'center'}},
+      React.createElement('div',{style:{display:'flex',gap:10,alignItems:'center',marginLeft:'auto'}},
         user&&React.createElement(React.Fragment,null,
           React.createElement('button',{onClick:onShowProjects,style:{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:8,color:'#fff',fontSize:12,fontWeight:600,padding:'6px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:6}},'📂 My Projects'),
           // User dropdown
