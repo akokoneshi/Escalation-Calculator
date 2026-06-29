@@ -1463,6 +1463,7 @@ function AuthScreen({onLogin}) {
   const [mode, setMode] = useState('login'); // 'login' | 'signup'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -1516,11 +1517,17 @@ function AuthScreen({onLogin}) {
         ),
         mode!=='reset'&&React.createElement('div',null,
           React.createElement('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},'Password'),
-          React.createElement('input',{type:'password',value:password,onChange:e=>setPassword(e.target.value),placeholder:'••••••••',style:inp,required:mode!=='reset'})
+          React.createElement('div',{style:{position:'relative'}},
+            React.createElement('input',{type:showPw?'text':'password',value:password,onChange:e=>setPassword(e.target.value),placeholder:'••••••••',style:{...inp,paddingRight:40},required:mode!=='reset'}),
+            React.createElement('button',{type:'button',onClick:()=>setShowPw(v=>!v),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#94a3b8',lineHeight:1,padding:2}},showPw?'🙈':'👁')
+          )
         ),
         mode==='signup'&&React.createElement('div',null,
           React.createElement('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},'Confirm Password'),
-          React.createElement('input',{type:'password',value:confirm,onChange:e=>setConfirm(e.target.value),placeholder:'••••••••',style:inp,required:true})
+          React.createElement('div',{style:{position:'relative'}},
+            React.createElement('input',{type:showPw?'text':'password',value:confirm,onChange:e=>setConfirm(e.target.value),placeholder:'••••••••',style:{...inp,paddingRight:40},required:true}),
+            React.createElement('button',{type:'button',onClick:()=>setShowPw(v=>!v),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#94a3b8',lineHeight:1,padding:2}},showPw?'🙈':'👁')
+          )
         ),
         mode==='login'&&React.createElement('div',{style:{textAlign:'right',marginTop:-6}},
           React.createElement('button',{type:'button',onClick:()=>{setMode('reset');setErr(null);setMsg(null);},style:{background:'none',border:'none',cursor:'pointer',fontSize:12,color:'#2563eb',fontWeight:500}},'Forgot password?')
