@@ -773,6 +773,7 @@ function printReport(results, form) {
   const fmt$ = v => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(v||0);
   const fmtPct = v => ((v||0)*100).toFixed(2)+'%';
   const fmtNum = (v,d=1) => (v||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const phaseNames = results.phaseNames || [];
 
   function getChartSVGs() {
     const out = [];
@@ -807,14 +808,42 @@ function printReport(results, form) {
     `).join('');
   }
 
+  function weeklyHeaders() {
+    const phaseCols = phaseNames.map(n => `
+      <th colspan="2" style="text-align:center;background:#eff6ff;color:#1e3a5f;border-left:2px solid #bfdbfe;font-size:7px;padding:4px 5px;">${n}</th>
+    `).join('');
+    const phaseSubCols = phaseNames.map(n => `
+      <th style="text-align:right;background:#faf5ff;color:#7c3aed;border-left:2px solid #bfdbfe;font-size:6.5px;padding:3px 5px;">Mat</th>
+      <th style="text-align:right;background:#fef2f2;color:#b91c1c;font-size:6.5px;padding:3px 5px;">Lab</th>
+    `).join('');
+    return `
+      <tr>
+        <th rowspan="2" style="text-align:center;">Wk</th>
+        <th rowspan="2" style="text-align:left;">Week Of</th>
+        <th rowspan="2" style="text-align:right;">Hours</th>
+        ${phaseCols}
+        <th rowspan="2" style="text-align:right;">Cum. Mat</th>
+        <th rowspan="2" style="text-align:right;">Cum. Labor</th>
+      </tr>
+      <tr>${phaseSubCols}</tr>
+    `;
+  }
+
   function weeklyRows() {
-    return (results.weeklyData||[]).map(r=>`<tr>
-      <td class="tc">${r.week}</td><td>${r.weekLabel}</td>
-      <td class="tr">${fmt$(r.materialCost)}</td><td class="tr">${fmt$(r.laborCost)}</td>
-      <td class="tr">${fmtNum(r.hours,1)}</td>
-      <td class="tr blue">${fmt$(r.cumulativeMaterial)}</td>
-      <td class="tr green">${fmt$(r.cumulativeLabor)}</td>
-    </tr>`).join('');
+    return (results.weeklyData||[]).map(r => {
+      const phaseCells = phaseNames.map(n => `
+        <td style="text-align:right;color:${r[n+'_mat']>0?'#6d28d9':'#d1d5db'};border-left:2px solid #eff6ff;">${r[n+'_mat']>0?fmt$(r[n+'_mat']):'—'}</td>
+        <td style="text-align:right;color:${r[n+'_lab']>0?'#991b1b':'#d1d5db'};">${r[n+'_lab']>0?fmt$(r[n+'_lab']):'—'}</td>
+      `).join('');
+      return `<tr>
+        <td style="text-align:center;color:#9ca3af;">${r.week}</td>
+        <td style="white-space:nowrap;">${r.weekLabel}</td>
+        <td style="text-align:right;">${fmtNum(r.hours,1)}</td>
+        ${phaseCells}
+        <td style="text-align:right;color:#1d4ed8;font-weight:500;">${fmt$(r.cumulativeMaterial)}</td>
+        <td style="text-align:right;color:#15803d;font-weight:500;">${fmt$(r.cumulativeLabor)}</td>
+      </tr>`;
+    }).join('');
   }
 
   function chartsSection() {
@@ -825,15 +854,24 @@ function printReport(results, form) {
       </div>`).join('');
   }
 
-  const phaseNames = (form.phases||[]).map(p=>p.name).join(', ');
+  const phaseSummary = (form.phases||[]).map(p=>p.name).join(', ');
 
   const html = `<!doctype html><html><head><meta charset="UTF-8"/>
 <title>Escalation Report — ${form.projectName||form.estimateNumber||''}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;color:#1e293b;background:#fff;line-height:1.45}
+
+/* Portrait pages for everything except weekly */
 @page{margin:.5in .55in;size:letter portrait}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+/* Landscape only for weekly breakdown section */
+@page weekly{margin:.4in .5in;size:letter landscape}
+
+@media print{
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .weekly-section{page:weekly}
+}
 
 /* HEADER */
 .hdr{background:#1e3a5f;color:#fff;padding:18px 20px;border-radius:8px;margin-bottom:14px}
@@ -871,12 +909,10 @@ td{padding:4px 7px;border-bottom:1px solid #f1f5f9}
 td:not(:first-child){text-align:right}
 .pos{color:#dc2626;font-weight:600}
 .neg{color:#16a34a;font-weight:600}
-.sum-table{margin-bottom:0}
 .sum-table tr:last-child td{font-weight:700;background:#f1f5f9;border-top:1.5px solid #cbd5e1;border-bottom:none}
 .phase-hdr-row td{background:#1e3a5f;color:#fff;font-weight:700;font-size:9px;padding:6px 7px;border-bottom:none}
 .group-hdr td{background:transparent;border-bottom:none;padding:5px 7px 1px;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
-.mat-lbl{color:#7c3aed}
-.lab-lbl{color:#b91c1c}
+.mat-lbl{color:#7c3aed}.lab-lbl{color:#b91c1c}
 .data-row td{background:#fff}
 .indent{padding-left:14px!important}
 .indent-bold{padding-left:14px!important;font-weight:700}
@@ -888,33 +924,25 @@ td:not(:first-child){text-align:right}
 
 /* CHARTS */
 .chart-stack{display:flex;flex-direction:column;gap:12px}
-.chart-box{border:1px solid #e2e8f0;border-radius:7px;padding:12px 14px;background:#fff}
+.chart-box{border:1px solid #e2e8f0;border-radius:7px;padding:12px 14px;background:#fff;page-break-inside:avoid;break-inside:avoid}
 .chart-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#475569;margin-bottom:8px}
 .chart-svg svg{width:100%!important;height:auto!important;min-height:200px}
 
-/* WEEKLY */
+/* WEEKLY TABLE — landscape */
+.weekly-section{page-break-before:always;break-before:always}
+.wk-table{font-size:8px;width:100%}
 .wk-table th{font-size:7px;padding:4px 5px}
-.wk-table td{font-size:8.5px;padding:3px 5px}
-.tc{text-align:center!important}
-.tr{text-align:right!important}
-.blue{color:#1d4ed8;font-weight:500}
-.green{color:#15803d;font-weight:500}
-
-.charts-section .sec{margin-top:0}
-.charts-section{page-break-inside:avoid;break-inside:avoid}
-/* But allow charts after first to break naturally */
-.chart-box+.chart-box{page-break-inside:avoid;break-inside:avoid}
-
-/* PAGE BREAK RULES */
-.hdr{page-break-inside:avoid}
-.info-strip{page-break-inside:avoid}
-.sum-grid{page-break-inside:avoid}
-.sum-table{page-break-inside:avoid}
-.chart-stack{page-break-before:auto}
-.chart-box{page-break-inside:avoid;break-inside:avoid}
-.spacer-row{page-break-inside:avoid}
-tr{page-break-inside:avoid}
+.wk-table td{padding:3px 5px;font-size:8px}
 thead{display:table-header-group}
+tr{page-break-inside:avoid;break-inside:avoid}
+
+/* PAGE BREAK HELPERS */
+.hdr{page-break-inside:avoid;break-inside:avoid}
+.info-strip{page-break-inside:avoid;break-inside:avoid}
+.sum-grid{page-break-inside:avoid;break-inside:avoid}
+.sum-table{page-break-inside:avoid;break-inside:avoid}
+.charts-section .sec{margin-top:0}
+.charts-section{page-break-before:auto}
 </style>
 </head><body>
 
@@ -925,7 +953,7 @@ thead{display:table-header-group}
       <div class="gen">Generated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
     </div>
     <div class="hdr-right">
-      <div><b>Estimate #:</b> ${form.estimateNumber||'—'} &nbsp;|&nbsp; <b>BidTracer #:</b> ${form.bidNumber||'—'}</div>
+      <div><b>Estimate #:</b> ${form.estimateNumber||'—'} &nbsp;|&nbsp; <b>Bid #:</b> ${form.bidNumber||'—'}</div>
       <div><b>Date:</b> ${form.date||'—'} &nbsp;|&nbsp; <b>Bid Date:</b> ${form.bidDate||'—'}</div>
     </div>
   </div>
@@ -936,7 +964,7 @@ thead{display:table-header-group}
   <div class="ic"><div class="lbl">Schedule Start</div><div class="val">${form.scheduleStart||'—'}</div></div>
   <div class="ic"><div class="lbl">Schedule End</div><div class="val">${form.scheduleEnd||'—'}</div></div>
   <div class="ic"><div class="lbl">Total Phases</div><div class="val">${(form.phases||[]).length}</div></div>
-  <div class="ic"><div class="lbl">Phase Names</div><div class="val">${phaseNames||'—'}</div></div>
+  <div class="ic"><div class="lbl">Phase Names</div><div class="val">${phaseSummary||'—'}</div></div>
 </div>
 
 <div class="sec">Cost Summary</div>
@@ -962,19 +990,21 @@ thead{display:table-header-group}
 </table>
 
 <div class="charts-section">
-<div class="sec">Charts</div>
-<div class="chart-stack">${chartsSection()}</div>
+  <div class="sec">Charts</div>
+  <div class="chart-stack">${chartsSection()}</div>
 </div>
 
-<div class="sec">Weekly Breakdown</div>
-<table class="wk-table">
-  <thead><tr><th>Wk</th><th>Week Of</th><th>Mat. Cost</th><th>Labor Cost</th><th>Hours</th><th>Cum. Material</th><th>Cum. Labor</th></tr></thead>
-  <tbody>${weeklyRows()}</tbody>
-</table>
+<div class="weekly-section">
+  <div class="sec" style="margin-top:0">Weekly Breakdown</div>
+  <table class="wk-table">
+    <thead>${weeklyHeaders()}</thead>
+    <tbody>${weeklyRows()}</tbody>
+  </table>
+</div>
 
 </body></html>`;
 
-  const win = window.open('','_blank','width=950,height=800');
+  const win = window.open('','_blank','width=1000,height=800');
   win.document.write(html);
   win.document.close();
   win.addEventListener('load', ()=>{ setTimeout(()=>{ win.focus(); win.print(); }, 400); });
