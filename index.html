@@ -528,6 +528,8 @@ function calculate(form, curves) {
     const normWeights=rawWeights.map(w=>w/rawSum);
     const hoursPerWeek=normWeights.map(w=>w*estimatedHours);
     const phaseWeeklyCost=new Array(allWeeks.length).fill(0);
+    const phaseWeeklyMat=new Array(allWeeks.length).fill(0);
+    const phaseWeeklyLab=new Array(allWeeks.length).fill(0);
     const matResults=[];
     for(const mat of phase.materials){
       const budget=parseFloat(String(mat.budget).replace(/[^0-9.]/g,''))||0;
@@ -537,7 +539,7 @@ function calculate(form, curves) {
         const factor=getEscalationFactor(mat.anniversaryDate,escalationPct,weekDate);
         const weekCost=budget*normWeights[wi]*factor;
         const gi=weeklyMap.findIndex(w=>w.weekDate.toDateString()===weekDate.toDateString());
-        if(gi>=0){weeklyMap[gi].materialCost+=weekCost;phaseWeeklyCost[gi]+=weekCost;}
+        if(gi>=0){weeklyMap[gi].materialCost+=weekCost;phaseWeeklyCost[gi]+=weekCost;phaseWeeklyMat[gi]+=weekCost;}
         totalEscalated+=weekCost;
       });
       matResults.push({name:mat.name,budgeted:budget,escalated:totalEscalated,difference:totalEscalated-budget,escPercent:budget>0?(totalEscalated-budget)/budget:0});
@@ -552,7 +554,7 @@ function calculate(form, curves) {
         const factor=getEscalationFactor(lab.anniversaryDate,escalationPct,weekDate);
         const weekCost=budget*normWeights[wi]*factor;
         const gi=weeklyMap.findIndex(w=>w.weekDate.toDateString()===weekDate.toDateString());
-        if(gi>=0){weeklyMap[gi].laborCost+=weekCost;phaseWeeklyCost[gi]+=weekCost;}
+        if(gi>=0){weeklyMap[gi].laborCost+=weekCost;phaseWeeklyCost[gi]+=weekCost;phaseWeeklyLab[gi]+=weekCost;}
         totalEscalated+=weekCost;
       });
       labResults.push({name:lab.name,budgeted:budget,escalated:totalEscalated,difference:totalEscalated-budget,escPercent:budget>0?(totalEscalated-budget)/budget:0});
@@ -562,13 +564,21 @@ function calculate(form, curves) {
       const gi=weeklyMap.findIndex(w=>w.weekDate.toDateString()===weekDate.toDateString());
       if(gi>=0) weeklyMap[gi].hours+=hoursPerWeek[wi];
     });
-    phaseWeeklyTotals.push({phaseName:phase.name,weeklyCosts:phaseWeeklyCost});
+    phaseWeeklyTotals.push({phaseName:phase.name,weeklyCosts:phaseWeeklyCost,weeklyMat:phaseWeeklyMat,weeklyLab:phaseWeeklyLab});
     const pBudMat=matResults.reduce((s,m)=>s+m.budgeted,0),pEscMat=matResults.reduce((s,m)=>s+m.escalated,0);
     const pBudLab=labResults.reduce((s,l)=>s+l.budgeted,0),pEscLab=labResults.reduce((s,l)=>s+l.escalated,0);
     phaseBreakdown.push({phaseName:phase.name,materials:matResults,phaseMaterialTotal:{budgeted:pBudMat,escalated:pEscMat,difference:pEscMat-pBudMat,escPercent:pBudMat>0?(pEscMat-pBudMat)/pBudMat:0},labors:labResults,phaseLaborTotal:{budgeted:pBudLab,escalated:pEscLab,difference:pEscLab-pBudLab,escPercent:pBudLab>0?(pEscLab-pBudLab)/pBudLab:0},phaseTotal:{budgeted:pBudMat+pBudLab,escalated:pEscMat+pEscLab,difference:(pEscMat+pEscLab)-(pBudMat+pBudLab),escPercent:(pBudMat+pBudLab)>0?((pEscMat+pEscLab)-(pBudMat+pBudLab))/(pBudMat+pBudLab):0}});
   }
   let cumMat=0,cumLab=0;
-  const weeklyData=weeklyMap.map((w,gi)=>{cumMat+=w.materialCost;cumLab+=w.laborCost;return{...w,cumulativeMaterial:cumMat,cumulativeLabor:cumLab};});
+  const weeklyData=weeklyMap.map((w,gi)=>{
+    cumMat+=w.materialCost;cumLab+=w.laborCost;
+    const phaseBreakdownWeek={};
+    phaseWeeklyTotals.forEach(p=>{
+      phaseBreakdownWeek[p.phaseName+'_mat']=p.weeklyMat[gi]||0;
+      phaseBreakdownWeek[p.phaseName+'_lab']=p.weeklyLab[gi]||0;
+    });
+    return{...w,cumulativeMaterial:cumMat,cumulativeLabor:cumLab,...phaseBreakdownWeek};
+  });
   const phaseOverlapData=allWeeks.map((_,gi)=>{
     const row={weekLabel:weeklyData[gi].weekLabel};
     phaseWeeklyTotals.forEach(p=>{row[p.phaseName]=p.weeklyCosts[gi];});
@@ -1025,16 +1035,33 @@ function Results({results,formData,onClear,onSave}){
         React.createElement('span',{style:{fontSize:11,color:'#9ca3af',fontWeight:400}},showWeekly?'Hide':`View ${weeklyData.length} weeks ▼`)
       ),
       showWeekly&&React.createElement('div',{style:{overflowX:'auto',borderTop:'1px solid #f3f4f6'}},
-        React.createElement('table',{style:{width:'100%',borderCollapse:'collapse'}},
-          React.createElement('thead',null,React.createElement('tr',null,['Wk','Week Of','Mat. Cost','Labor Cost','Hours','Cum. Material','Cum. Labor'].map((h,i)=>React.createElement('th',{key:h,style:{textAlign:i<2?'center':'right',padding:'8px 12px',fontSize:10,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'}},h)))),
+        React.createElement('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
+          React.createElement('thead',null,
+            React.createElement('tr',null,
+              React.createElement('th',{style:{textAlign:'center',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Wk'),
+              React.createElement('th',{style:{textAlign:'left',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Week Of'),
+              React.createElement('th',{style:{textAlign:'center',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Hours'),
+              ...phaseNames.map(n=>React.createElement('th',{key:n,colSpan:2,style:{textAlign:'center',padding:'6px 8px',fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'#1e3a5f',background:'#eff6ff',borderLeft:'2px solid #bfdbfe'}},n)),
+              React.createElement('th',{style:{textAlign:'right',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Cum. Mat'),
+              React.createElement('th',{style:{textAlign:'right',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Cum. Labor')
+            ),
+            React.createElement('tr',null,
+              ...phaseNames.flatMap(n=>[
+                React.createElement('th',{key:n+'_mat',style:{textAlign:'right',padding:'4px 8px',fontSize:8,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.04em',color:'#7c3aed',background:'#faf5ff',borderLeft:'2px solid #bfdbfe'}},'Mat'),
+                React.createElement('th',{key:n+'_lab',style:{textAlign:'right',padding:'4px 8px',fontSize:8,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.04em',color:'#b91c1c',background:'#fef2f2'}},'Lab')
+              ])
+            )
+          ),
           React.createElement('tbody',null,weeklyData.map(row=>React.createElement('tr',{key:row.week,style:{borderTop:'1px solid #f9fafb'}},
-            React.createElement('td',{style:{padding:'6px 12px',textAlign:'center',fontSize:11,color:'#9ca3af'}},row.week),
-            React.createElement('td',{style:{padding:'6px 12px',fontSize:11,color:'#374151',fontWeight:500,whiteSpace:'nowrap'}},row.weekLabel),
-            React.createElement('td',{style:{padding:'6px 12px',textAlign:'right',fontSize:11,color:'#6b7280'}},fmt$(row.materialCost)),
-            React.createElement('td',{style:{padding:'6px 12px',textAlign:'right',fontSize:11,color:'#6b7280'}},fmt$(row.laborCost)),
-            React.createElement('td',{style:{padding:'6px 12px',textAlign:'right',fontSize:11,color:'#6b7280'}},fmtNum(row.hours,1)),
-            React.createElement('td',{style:{padding:'6px 12px',textAlign:'right',fontSize:11,color:'#1d4ed8',fontWeight:500}},fmt$(row.cumulativeMaterial)),
-            React.createElement('td',{style:{padding:'6px 12px',textAlign:'right',fontSize:11,color:'#15803d',fontWeight:500}},fmt$(row.cumulativeLabor))
+            React.createElement('td',{style:{padding:'5px 8px',textAlign:'center',color:'#9ca3af'}},row.week),
+            React.createElement('td',{style:{padding:'5px 8px',color:'#374151',fontWeight:500,whiteSpace:'nowrap'}},row.weekLabel),
+            React.createElement('td',{style:{padding:'5px 8px',textAlign:'right',color:'#6b7280'}},fmtNum(row.hours,1)),
+            ...phaseNames.flatMap(n=>[
+              React.createElement('td',{key:n+'_mat',style:{padding:'5px 8px',textAlign:'right',color:row[n+'_mat']>0?'#6d28d9':'#d1d5db',borderLeft:'2px solid #eff6ff'}},row[n+'_mat']>0?fmt$(row[n+'_mat']):'—'),
+              React.createElement('td',{key:n+'_lab',style:{padding:'5px 8px',textAlign:'right',color:row[n+'_lab']>0?'#991b1b':'#d1d5db'}},row[n+'_lab']>0?fmt$(row[n+'_lab']):'—')
+            ]),
+            React.createElement('td',{style:{padding:'5px 8px',textAlign:'right',color:'#1d4ed8',fontWeight:500}},fmt$(row.cumulativeMaterial)),
+            React.createElement('td',{style:{padding:'5px 8px',textAlign:'right',color:'#15803d',fontWeight:500}},fmt$(row.cumulativeLabor))
           )))
         )
       )
