@@ -1233,11 +1233,7 @@ function Calculator({toast,error,user,loadedProject,onProjectLoaded}){
   const g2={display:'grid',gridTemplateColumns:'1fr 1fr',gap:10};
   return React.createElement('div',{style:{display:'flex',minHeight:'calc(100vh - 64px)'}},
     React.createElement('aside',{style:{width:500,minWidth:500,background:'#1e3a5f',display:'flex',flexDirection:'column',position:'sticky',top:64,height:'calc(100vh - 64px)',overflowY:'auto'}},
-      React.createElement('div',{style:{padding:'20px 24px 16px'}},
-        React.createElement(LogoDisplay,{size:52,style:{marginBottom:12,display:'block'}}),
-        React.createElement('h1',{style:{fontSize:20,fontWeight:700,color:'#fff'}},'Escalation Calculator'),
-        React.createElement('p',{style:{fontSize:12,color:'rgba(147,197,253,0.7)',marginTop:4}},'Fill in project details to calculate cost escalation.')
-      ),
+
       React.createElement('form',{onSubmit:submit,style:{flex:1,padding:'0 20px 16px',overflowY:'auto'}},
         React.createElement(SectionCard,{title:'Project Info',accent:'#60a5fa'},
           React.createElement('div',{style:{marginBottom:10}},React.createElement(Label,{required:true},'Project Name'),React.createElement(SInput,{value:form.projectName,onChange:e=>setField('projectName',e.target.value),placeholder:'e.g. Main Street Renovation'})),
