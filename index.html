@@ -1382,7 +1382,7 @@ function AuthScreen({onLogin}) {
         setMode('login');
       } else if (mode === 'reset') {
         const { error } = await _sb.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.href,
+          redirectTo: 'https://escalation-calculator.vercel.app',
         });
         if (error) throw new Error(error.message);
         setMsg('Password reset email sent! Check your inbox and follow the link.');
