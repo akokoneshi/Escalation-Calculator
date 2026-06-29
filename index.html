@@ -1373,12 +1373,19 @@ function AuthScreen({onLogin}) {
     e.preventDefault();
     setErr(null); setMsg(null);
     if (mode === 'signup' && password !== confirm) { setErr('Passwords do not match.'); return; }
-    if (password.length < 6) { setErr('Password must be at least 6 characters.'); return; }
+    if (mode !== 'reset' && password.length < 6) { setErr('Password must be at least 6 characters.'); return; }
     setLoading(true);
     try {
       if (mode === 'signup') {
         await sbSignUp(email, password);
-        setMsg('Account created! Please check your email to confirm, then log in.');
+        setMsg('Account created! You can now sign in.');
+        setMode('login');
+      } else if (mode === 'reset') {
+        const { error } = await _sb.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.href,
+        });
+        if (error) throw new Error(error.message);
+        setMsg('Password reset email sent! Check your inbox and follow the link.');
         setMode('login');
       } else {
         await sbSignIn(email, password);
@@ -1399,7 +1406,7 @@ function AuthScreen({onLogin}) {
         
       ),
       React.createElement('div',{style:{display:'flex',background:'#f1f5f9',borderRadius:10,padding:4,marginBottom:24}},
-        ['login','signup'].map(m=>React.createElement('button',{key:m,type:'button',onClick:()=>{setMode(m);setErr(null);setMsg(null);},style:{flex:1,padding:'8px',fontSize:13,fontWeight:600,borderRadius:8,border:'none',cursor:'pointer',background:mode===m?'#fff':'transparent',color:mode===m?'#1e3a5f':'#94a3b8',boxShadow:mode===m?'0 1px 4px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}},m==='login'?'Sign In':'Create Account'))
+        [{k:'login',l:'Sign In'},{k:'signup',l:'Create Account'}].map(({k,l})=>React.createElement('button',{key:k,type:'button',onClick:()=>{setMode(k);setErr(null);setMsg(null);},style:{flex:1,padding:'8px',fontSize:13,fontWeight:600,borderRadius:8,border:'none',cursor:'pointer',background:mode===k?'#fff':'transparent',color:mode===k?'#1e3a5f':'#94a3b8',boxShadow:mode===k?'0 1px 4px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}},l))
       ),
       err&&React.createElement('div',{style:{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:8,padding:'10px 14px',fontSize:13,color:'#dc2626',marginBottom:16}},err),
       msg&&React.createElement('div',{style:{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,padding:'10px 14px',fontSize:13,color:'#16a34a',marginBottom:16}},msg),
@@ -1408,17 +1415,22 @@ function AuthScreen({onLogin}) {
           React.createElement('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},'Email'),
           React.createElement('input',{type:'email',value:email,onChange:e=>setEmail(e.target.value),placeholder:'you@company.com',style:inp,required:true})
         ),
-        React.createElement('div',null,
+        mode!=='reset'&&React.createElement('div',null,
           React.createElement('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},'Password'),
-          React.createElement('input',{type:'password',value:password,onChange:e=>setPassword(e.target.value),placeholder:'••••••••',style:inp,required:true})
+          React.createElement('input',{type:'password',value:password,onChange:e=>setPassword(e.target.value),placeholder:'••••••••',style:inp,required:mode!=='reset'})
         ),
         mode==='signup'&&React.createElement('div',null,
           React.createElement('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},'Confirm Password'),
           React.createElement('input',{type:'password',value:confirm,onChange:e=>setConfirm(e.target.value),placeholder:'••••••••',style:inp,required:true})
         ),
+        mode==='login'&&React.createElement('div',{style:{textAlign:'right',marginTop:-6}},
+          React.createElement('button',{type:'button',onClick:()=>{setMode('reset');setErr(null);setMsg(null);},style:{background:'none',border:'none',cursor:'pointer',fontSize:12,color:'#2563eb',fontWeight:500}},'Forgot password?')
+        ),
+        mode==='reset'&&React.createElement('p',{style:{fontSize:12,color:'#64748b',textAlign:'center',marginTop:-4}},'We\'ll send a reset link to your email.'),
         React.createElement('button',{type:'submit',disabled:loading,style:{width:'100%',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:12,padding:'12px',fontSize:14,fontWeight:700,cursor:loading?'not-allowed':'pointer',opacity:loading?0.6:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginTop:4}},
-          loading?[React.createElement(Spinner,{key:'s',size:16}),' Please wait…']:mode==='login'?'Sign In →':'Create Account →'
-        )
+          loading?[React.createElement(Spinner,{key:'s',size:16}),' Please wait…']:mode==='login'?'Sign In →':mode==='reset'?'Send Reset Link →':'Create Account →'
+        ),
+        mode==='reset'&&React.createElement('button',{type:'button',onClick:()=>{setMode('login');setErr(null);setMsg(null);},style:{width:'100%',background:'none',border:'none',cursor:'pointer',fontSize:12,color:'#94a3b8',marginTop:4}},'← Back to Sign In')
       )
     )
   );
