@@ -397,10 +397,31 @@ var ReactIs = (function() {
    ══════════════════════════════════════ */
 const _sb = supabase.createClient('https://rvqsiuauzyvpsbpzbfkv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2cXNpdWF1enl2cHNicHpiZmt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MDMxMzgsImV4cCI6MjA5ODI3OTEzOH0.28gm0z6vPvy-Xi-Hj0iPlBtE1VQnep6UEKyS7TxjSkU');
 
-/* ── Logo helpers ── */
-function saveLogo(dataUrl) { localStorage.setItem('esc_logo', dataUrl); }
-function getLogo() { return localStorage.getItem('esc_logo'); }
-function clearLogo() { localStorage.removeItem('esc_logo'); }
+/* ── Logo helpers (per-account, stored in Supabase user metadata) ── */
+let _cachedLogo = null;
+let _cachedLogoUserId = null;
+
+async function saveLogo(dataUrl) {
+  const { error } = await _sb.auth.updateUser({ data: { company_logo: dataUrl } });
+  if (error) throw new Error(error.message);
+  const user = await sbGetUser();
+  _cachedLogo = dataUrl;
+  _cachedLogoUserId = user?.id;
+}
+function getLogo() {
+  return _cachedLogo;
+}
+async function clearLogo() {
+  const { error } = await _sb.auth.updateUser({ data: { company_logo: null } });
+  if (error) throw new Error(error.message);
+  _cachedLogo = null;
+}
+async function refreshLogoCache() {
+  const user = await sbGetUser();
+  _cachedLogo = user?.user_metadata?.company_logo || null;
+  _cachedLogoUserId = user?.id || null;
+  return _cachedLogo;
+}
 
 /* ── Auth helpers ── */
 async function sbSignUp(email, password, name) {
@@ -1760,10 +1781,24 @@ function SettingsPanel({user,onClose,toast,error}){
     if(!file.type.startsWith('image/')){error('Please upload an image file.');return;}
     if(file.size>2*1024*1024){error('Image must be under 2MB.');return;}
     const reader=new FileReader();
-    reader.onload=e=>{saveLogo(e.target.result);setLogo(e.target.result);window.dispatchEvent(new Event('logo-updated'));toast('Logo uploaded!');};
+    reader.onload=async e=>{
+      try{
+        await saveLogo(e.target.result);
+        setLogo(e.target.result);
+        window.dispatchEvent(new Event('logo-updated'));
+        toast('Logo uploaded!');
+      }catch(err){error(err.message);}
+    };
     reader.readAsDataURL(file);
   }
-  function removeLogo(){clearLogo();setLogo(null);window.dispatchEvent(new Event('logo-updated'));toast('Logo removed.');}
+  async function removeLogo(){
+    try{
+      await clearLogo();
+      setLogo(null);
+      window.dispatchEvent(new Event('logo-updated'));
+      toast('Logo removed.');
+    }catch(err){error(err.message);}
+  }
 
   const inp={width:'100%',padding:'9px 12px',fontSize:13,border:'1px solid #d1d5db',borderRadius:8,outline:'none',background:'#f9fafb',color:'#1e293b'};
   const lbl={display:'block',fontSize:11,fontWeight:600,color:'#374151',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em'};
@@ -2121,13 +2156,25 @@ function App(){
       setShowPasswordReset(true);
       return;
     }
-    sbGetUser().then(u=>{ setUser(u); setAuthChecked(true); }).catch(()=>setAuthChecked(true));
-    _sb.auth.onAuthStateChange((_,session)=>{ setUser(session?.user||null); });
+    sbGetUser().then(async u=>{
+      setUser(u);
+      if(u) await refreshLogoCache();
+      window.dispatchEvent(new Event('logo-updated'));
+      setAuthChecked(true);
+    }).catch(()=>setAuthChecked(true));
+    _sb.auth.onAuthStateChange(async (_,session)=>{
+      const u = session?.user||null;
+      setUser(u);
+      if(u) await refreshLogoCache(); else { _cachedLogo=null; }
+      window.dispatchEvent(new Event('logo-updated'));
+    });
   },[]);
 
   async function handleLogout(){
     await sbSignOut();
     setUser(null);
+    _cachedLogo = null;
+    window.dispatchEvent(new Event('logo-updated'));
     toast('Signed out.');
   }
 
