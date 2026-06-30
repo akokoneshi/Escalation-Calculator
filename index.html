@@ -1100,8 +1100,8 @@ function Results({results,formData,onClear,onSave}){
         )
       )
     ),
-    React.createElement(PhaseOverlapChart,{phaseOverlapData:phaseOverlapData,phaseNames:phaseNames}),
     React.createElement(PhaseBreakdown,{phaseBreakdown}),
+    React.createElement(PhaseOverlapChart,{phaseOverlapData:phaseOverlapData,phaseNames:phaseNames}),
     React.createElement('div',{style:CARD},
       React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Cumulative Material Cost'),
       React.createElement(ResponsiveContainer,{width:'100%',height:300},React.createElement(LineChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),React.createElement(YAxis,{tickFormatter:fmtShort$,tick:{fontSize:11,fill:'#9ca3af'},width:60}),React.createElement(Tooltip,{content:React.createElement(MatTip,null)}),React.createElement(ReferenceLine,{y:s.budgetedMaterial,stroke:'#f97316',strokeDasharray:'4 3',label:{value:'Budget',position:'insideTopRight',fontSize:10,fill:'#f97316'}}),React.createElement(Line,{type:'monotone',dataKey:'cumulativeMaterial',name:'Cum. Material',stroke:'#2563eb',strokeWidth:2,dot:false,activeDot:{r:4}})))
