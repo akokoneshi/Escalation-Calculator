@@ -493,6 +493,7 @@ const ADMIN_PASSWORD = 'admin123'; // change this to your preferred password
 
 const DEFAULT_CURVES = [
   // KI_CURVE listed first by default
+  {id:'adaptive-curve-001',name:'Adaptive (8-hr blocks)',type:'adaptive',weeks:[],is_active:true,sort_order:1,description:'Auto-generates a bell-curve distribution rounded to 8-hour blocks. Minimum 8 hrs/week. Adapts to actual phase hours and duration.'},
   {id:'6a2ac162b6244b3047f2ed79',name:'KI_CURVE',weeks:[0.0001,0.00015,0.00015,0.0001,0.0004,0.0006,0.0006,0.001,0.001,0.001,0.004,0.0064,0.008,0.012,0.0155,0.019,0.024,0.025,0.029,0.034,0.042,0.044,0.048,0.052,0.055,0.056,0.057,0.056,0.054,0.048,0.047,0.046,0.04,0.029,0.029,0.029,0.021,0.0166,0.0131,0.0102,0.007,0.005,0.004,0.003,0.0023,0.001,0.001,0.0006,0.0004,0.0001,0.0001,0.0005],is_active:true,created_at:'2026-06-11T14:08:34.259Z'},
 
   {id:'6a2ac161b6244b3047f2ed75',name:'Flat',weeks:[0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769],is_active:true,created_at:'2026-06-11T14:08:33.013Z'},
@@ -507,8 +508,15 @@ function loadCurves() {
   try {
     const s=localStorage.getItem('esc_curves');
     let curves = s?JSON.parse(s):DEFAULT_CURVES;
-    // Ensure all curves have a sort_order; assign based on current array position if missing
+    // Merge in any DEFAULT_CURVES entries missing from saved data (e.g. newly added curves)
     let needsSave = false;
+    DEFAULT_CURVES.forEach(def => {
+      if (!curves.find(c => c.id === def.id)) {
+        curves.push({...def, sort_order: curves.length});
+        needsSave = true;
+      }
+    });
+    // Ensure all curves have a sort_order
     curves = curves.map((c,i) => {
       if (c.sort_order === undefined) { needsSave = true; return {...c, sort_order: i}; }
       return c;
@@ -547,6 +555,48 @@ function interpWeight(wi, totalWeeks, curve) {
   const pos=(wi/(totalWeeks-1))*(curve.length-1), lo=Math.floor(pos), hi=Math.min(lo+1,curve.length-1);
   return curve[lo]*(1-(pos-lo))+curve[hi]*(pos-lo);
 }
+
+function generateAdaptiveWeights(totalWeeks, estimatedHours) {
+  // KI_CURVE template — the shape we want to replicate
+  const KI = [0.0001,0.00015,0.00015,0.0001,0.0004,0.0006,0.0006,0.001,0.001,0.001,
+               0.004,0.0064,0.008,0.012,0.0155,0.019,0.024,0.025,0.029,0.034,
+               0.042,0.044,0.048,0.052,0.055,0.056,0.057,0.056,0.054,0.048,
+               0.047,0.046,0.04,0.029,0.029,0.029,0.021,0.0166,0.0131,0.0102,
+               0.007,0.005,0.004,0.003,0.0023,0.001,0.001,0.0006,0.0004,0.0001,
+               0.0001,0.0005];
+  const minHours = 8;
+  const targetHours = Math.round(estimatedHours / 8) * 8 || 8;
+
+  // Interpolate KI_CURVE shape to fit exactly totalWeeks
+  function interpKI(wi, total) {
+    if (total <= 1) return KI[0];
+    const pos = (wi / (total - 1)) * (KI.length - 1);
+    const lo = Math.floor(pos);
+    const hi = Math.min(lo + 1, KI.length - 1);
+    return KI[lo] * (1 - (pos - lo)) + KI[hi] * (pos - lo);
+  }
+
+  // Get raw KI weights stretched to totalWeeks
+  const rawWeights = Array.from({length: totalWeeks}, (_, wi) => interpKI(wi, totalWeeks));
+  const rawSum = rawWeights.reduce((s, w) => s + w, 0) || 1;
+
+  // Scale to hours, round DOWN to nearest 8, enforce minimum 8
+  let hours = rawWeights.map(w => Math.max(minHours, Math.floor((w / rawSum) * targetHours / 8) * 8));
+
+  // Distribute remaining hours (in 8-hr blocks) to highest-weight weeks first
+  let diff = targetHours - hours.reduce((s, h) => s + h, 0);
+  const byWeight = rawWeights.map((w, i) => ({i, w})).sort((a, b) => b.w - a.w);
+  let ri = 0;
+  while (Math.abs(diff) >= 8 && ri < totalWeeks * 200) {
+    const idx = byWeight[ri % totalWeeks].i;
+    if (diff > 0) { hours[idx] += 8; diff -= 8; }
+    else if (diff < 0 && hours[idx] > minHours) { hours[idx] -= 8; diff += 8; }
+    ri++;
+  }
+
+  const total = hours.reduce((s, h) => s + h, 0) || 1;
+  return hours.map(h => h / total);
+}
 function getEscalationFactor(anniversaryDate, escalationPct, weekDate) {
   const anniv=new Date(anniversaryDate), week=new Date(weekDate);
   anniv.setHours(0,0,0,0); week.setHours(0,0,0,0);
@@ -575,10 +625,16 @@ function calculate(form, curves) {
     const phaseWeeks=getWeeksBetween(phase.startDate,phase.endDate);
     if(!phaseWeeks.length) continue;
     const totalPW=phaseWeeks.length, estimatedHours=parseFloat(phase.estimatedHours)||1;
-    const rawWeights=phaseWeeks.map((_,wi)=>interpWeight(wi,totalPW,curve.weeks));
-    const rawSum=rawWeights.reduce((s,w)=>s+w,0)||1;
-    const normWeights=rawWeights.map(w=>w/rawSum);
-    const hoursPerWeek=normWeights.map(w=>w*estimatedHours);
+    let normWeights, hoursPerWeek;
+    if(curve.type==='adaptive'){
+      normWeights=generateAdaptiveWeights(totalPW, estimatedHours);
+      hoursPerWeek=normWeights.map(w=>Math.round(w*estimatedHours/8)*8||8);
+    } else {
+      const rawWeights=phaseWeeks.map((_,wi)=>interpWeight(wi,totalPW,curve.weeks));
+      const rawSum=rawWeights.reduce((s,w)=>s+w,0)||1;
+      normWeights=rawWeights.map(w=>w/rawSum);
+      hoursPerWeek=normWeights.map(w=>w*estimatedHours);
+    }
     const phaseWeeklyCost=new Array(allWeeks.length).fill(0);
     const phaseWeeklyMat=new Array(allWeeks.length).fill(0);
     const phaseWeeklyLab=new Array(allWeeks.length).fill(0);
@@ -1606,7 +1662,10 @@ function CurvesPanel({onClose, toast, error}) {
                 }
               },
                 React.createElement('td',{style:{padding:'14px 8px 14px 20px',color:'#cbd5e1',fontSize:16,userSelect:'none'}},'⠿'),
-                React.createElement('td',{style:{padding:'14px 20px',fontWeight:600,fontSize:14,color:'#1e293b'}},c.name),
+                React.createElement('td',{style:{padding:'14px 20px',fontWeight:600,fontSize:14,color:'#1e293b'}},
+                  c.name,
+                  c.type==='adaptive'&&React.createElement('span',{style:{marginLeft:8,fontSize:10,fontWeight:700,color:'#7c3aed',background:'#f5f3ff',padding:'2px 8px',borderRadius:999}},'AUTO')
+                ),
                 React.createElement('td',{style:{padding:'14px 20px'}},
                   React.createElement('span',{style:{fontSize:12,fontWeight:600,color:valid?'#16a34a':'#dc2626',background:valid?'#f0fdf4':'#fef2f2',padding:'3px 10px',borderRadius:999}},`${sm.toFixed(4)} ${valid?'✓':'✗'}`)
                 ),
@@ -1615,7 +1674,7 @@ function CurvesPanel({onClose, toast, error}) {
                 ),
                 React.createElement('td',{style:{padding:'14px 20px',textAlign:'right'}},
                   React.createElement('div',{style:{display:'flex',gap:8,justifyContent:'flex-end'}},
-                    React.createElement('button',{onClick:()=>setEditTarget(c),style:{fontSize:12,fontWeight:500,color:'#3b82f6',background:'#eff6ff',border:'none',borderRadius:6,padding:'5px 12px',cursor:'pointer'}},'Edit'),
+                    !c.type&&React.createElement('button',{onClick:()=>setEditTarget(c),style:{fontSize:12,fontWeight:500,color:'#3b82f6',background:'#eff6ff',border:'none',borderRadius:6,padding:'5px 12px',cursor:'pointer'}},'Edit'),
                     React.createElement('button',{onClick:()=>toggleActive(c),style:{fontSize:12,fontWeight:500,color:c.is_active?'#f59e0b':'#16a34a',background:c.is_active?'#fffbeb':'#f0fdf4',border:'none',borderRadius:6,padding:'5px 12px',cursor:'pointer'}},c.is_active?'Deactivate':'Activate'),
                     React.createElement('button',{onClick:()=>setDeleteTarget(c),style:{fontSize:12,fontWeight:500,color:'#ef4444',background:'#fef2f2',border:'none',borderRadius:6,padding:'5px 12px',cursor:'pointer'}},'Delete')
                   )
