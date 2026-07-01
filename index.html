@@ -493,7 +493,7 @@ const ADMIN_PASSWORD = 'admin123'; // change this to your preferred password
 
 const DEFAULT_CURVES = [
   // KI_CURVE listed first by default
-  {id:'adaptive-curve-001',name:'Adaptive (8-hr blocks)',type:'adaptive',weeks:[],is_active:true,sort_order:1,description:'Auto-generates a bell-curve distribution rounded to 8-hour blocks. Minimum 8 hrs/week. Adapts to actual phase hours and duration.'},
+  {id:'adaptive-curve-001',name:'Adaptive (8-hr blocks)',type:'adaptive',weeks:[0.0001, 0.00015, 0.00015, 0.0001, 0.0004, 0.0006001, 0.0006001, 0.0010001, 0.0010001, 0.0010001, 0.0040004, 0.0064006, 0.0080008, 0.0120012, 0.0155016, 0.0190019, 0.0240024, 0.0250025, 0.0290029, 0.0340034, 0.0420042, 0.0440044, 0.0480048, 0.0520052, 0.0550055, 0.0560056, 0.0570057, 0.0560056, 0.0540054, 0.0480048, 0.0470047, 0.0460046, 0.040004, 0.0290029, 0.0290029, 0.0290029, 0.0210021, 0.0166017, 0.0131013, 0.010201, 0.0070007, 0.0050005, 0.0040004, 0.0030003, 0.0023002, 0.0010001, 0.0010001, 0.0006001, 0.0004, 0.0001, 0.0001, 0.0005001],is_active:true,sort_order:1,description:'Auto-generates a bell-curve distribution rounded to 8-hour blocks. Minimum 8 hrs/week. Adapts to actual phase hours and duration.'},
   {id:'6a2ac162b6244b3047f2ed79',name:'KI_CURVE',weeks:[0.0001,0.00015,0.00015,0.0001,0.0004,0.0006,0.0006,0.001,0.001,0.001,0.004,0.0064,0.008,0.012,0.0155,0.019,0.024,0.025,0.029,0.034,0.042,0.044,0.048,0.052,0.055,0.056,0.057,0.056,0.054,0.048,0.047,0.046,0.04,0.029,0.029,0.029,0.021,0.0166,0.0131,0.0102,0.007,0.005,0.004,0.003,0.0023,0.001,0.001,0.0006,0.0004,0.0001,0.0001,0.0005],is_active:true,created_at:'2026-06-11T14:08:34.259Z'},
 
   {id:'6a2ac161b6244b3047f2ed75',name:'Flat',weeks:[0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769],is_active:true,created_at:'2026-06-11T14:08:33.013Z'},
@@ -1667,7 +1667,9 @@ function CurvesPanel({onClose, toast, error}) {
                   c.type==='adaptive'&&React.createElement('span',{style:{marginLeft:8,fontSize:10,fontWeight:700,color:'#7c3aed',background:'#f5f3ff',padding:'2px 8px',borderRadius:999}},'AUTO')
                 ),
                 React.createElement('td',{style:{padding:'14px 20px'}},
-                  React.createElement('span',{style:{fontSize:12,fontWeight:600,color:valid?'#16a34a':'#dc2626',background:valid?'#f0fdf4':'#fef2f2',padding:'3px 10px',borderRadius:999}},`${sm.toFixed(4)} ${valid?'✓':'✗'}`)
+                  c.type==='adaptive'
+                    ? React.createElement('span',{style:{fontSize:12,fontWeight:600,color:'#7c3aed',background:'#f5f3ff',padding:'3px 10px',borderRadius:999}},'Auto-generated')
+                    : React.createElement('span',{style:{fontSize:12,fontWeight:600,color:valid?'#16a34a':'#dc2626',background:valid?'#f0fdf4':'#fef2f2',padding:'3px 10px',borderRadius:999}},`${sm.toFixed(4)} ${valid?'✓':'✗'}`)
                 ),
                 React.createElement('td',{style:{padding:'14px 20px'}},
                   React.createElement('span',{style:{padding:'3px 10px',borderRadius:999,fontSize:11,fontWeight:500,background:c.is_active?'#dcfce7':'#f1f5f9',color:c.is_active?'#15803d':'#64748b'}},c.is_active?'Active':'Inactive')
