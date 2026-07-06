@@ -483,6 +483,17 @@ async function sbDeleteProject(id) {
   const { error } = await _sb.from('projects').delete().eq('id', id);
   if (error) throw new Error(error.message);
 }
+// Returns the existing project {id, project_name} using this estimate number for the current user,
+// excluding the project currently being saved (so updating a project keeps its own number). Returns null if none.
+async function sbFindDuplicateEstimateNumber(estimateNumber, excludeId) {
+  const num = (estimateNumber||'').trim();
+  if (!num) return null;
+  let query = _sb.from('projects').select('id,project_name').ilike('estimate_number', num);
+  if (excludeId) query = query.neq('id', excludeId);
+  const { data, error } = await query.limit(1).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data || null;
+}
 
 const { useState, useEffect, useRef, useCallback } = React;
 const { ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } = Recharts;
@@ -957,7 +968,7 @@ function PhaseOverlapChart({phaseOverlapData,phaseNames}){
       React.createElement(LineChart,{data:phaseOverlapData,margin:{top:8,right:16,left:8,bottom:55}},
         React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),
         React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),
-        React.createElement(YAxis,{tickFormatter:v=>v>=1e6?'$'+(v/1e6).toFixed(1)+'M':v>=1e3?'$'+(v/1e3).toFixed(0)+'K':'$'+Math.round(v),tick:{fontSize:11,fill:'#9ca3af'},width:60}),
+        React.createElement(YAxis,{tickFormatter:v=>v>=1e6?'$'+(v/1e6).toFixed(1)+'M':v>=1e3?'$'+(v/1e3).toFixed(0)+'K':'$'+Math.round(v),tick:{fontSize:11,fill:'#9ca3af'},width:60,tickCount:9}),
         React.createElement(Tooltip,{content:React.createElement(PhTip,null)}),
         ...phaseNames.map((name,i)=>React.createElement(Line,{key:name,type:'monotone',dataKey:name,name:name,stroke:COLORS[i%COLORS.length],strokeWidth:2,dot:false,activeDot:{r:4}}))
       )
@@ -995,7 +1006,7 @@ function CostBreakdownChart({weeklyData,series,title,subtitle,palette}){
       React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},
         React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),
         React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),
-        React.createElement(YAxis,{tickFormatter:fmtShort$,tick:{fontSize:11,fill:'#9ca3af'},width:60}),
+        React.createElement(YAxis,{tickFormatter:fmtShort$,tick:{fontSize:11,fill:'#9ca3af'},width:60,tickCount:9}),
         React.createElement(Tooltip,{content:React.createElement(MTip,null),cursor:{fill:'rgba(0,0,0,0.04)'}}),
         ...series.map((m,i)=>React.createElement(Bar,{key:m.key,dataKey:m.key,name:m.name,stackId:'1',fill:COLORS[i%COLORS.length],radius:i===series.length-1?[3,3,0,0]:[0,0,0,0],isAnimationActive:false})),
         React.createElement(ReferenceLine,{y:avgTotal,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtShort$(avgTotal),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}})
@@ -1029,7 +1040,7 @@ function WorkersPerWeekChart({weeklyData,blockHours}){
       React.createElement(BarChart,{data:chartData,margin:{top:8,right:16,left:8,bottom:55}},
         React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),
         React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),
-        React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44,allowDecimals:false}),
+        React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44,allowDecimals:false,tickCount:8}),
         React.createElement(Tooltip,{content:React.createElement(WTip,null)}),
         React.createElement(ReferenceLine,{y:avgWorkers,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgWorkers,0),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}}),
         React.createElement(Bar,{dataKey:'workersDisplay',name:'Workers',fill:'#0891b2',radius:[3,3,0,0]})
@@ -1047,14 +1058,23 @@ function xlColLetter(n){ // 1-based index -> column letter (A, B, ... Z, AA, ...
 function xlEsc(str){
   return String(str==null?'':str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function xlBuildDataSheet(headers, rows){
+function xlColsXml(widths){
+  if(!widths||!widths.length) return '';
+  let xml = '<cols>';
+  widths.forEach((w,i)=>{ xml += `<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`; });
+  xml += '</cols>';
+  return xml;
+}
+function xlBuildDataSheet(headers, rows, colWidths){
   let xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   xml += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
   const lastCol = xlColLetter(headers.length);
   const lastRow = rows.length + 1;
-  xml += `<dimension ref="A1:${lastCol}${lastRow}"/><sheetData>`;
+  xml += `<dimension ref="A1:${lastCol}${lastRow}"/>`;
+  xml += xlColsXml(colWidths);
+  xml += `<sheetData>`;
   xml += `<row r="1">`;
-  headers.forEach((h,i)=>{ xml += `<c r="${xlColLetter(i+1)}1" t="inlineStr" s="1"><is><t>${xlEsc(h)}</t></is></c>`; });
+  headers.forEach((h,i)=>{ xml += `<c r="${xlColLetter(i+1)}1" t="inlineStr" s="5"><is><t>${xlEsc(h)}</t></is></c>`; });
   xml += `</row>`;
   rows.forEach((row,ri)=>{
     const r = ri+2;
@@ -1069,26 +1089,39 @@ function xlBuildDataSheet(headers, rows){
   xml += `</sheetData></worksheet>`;
   return xml;
 }
-function xlBuildFreeformSheet(rows){
-  // rows: array of arrays of {v,type:'n'|'s',bold?:true}
+const XL_STYLE = { // maps a friendly style key to a cellXfs index (see xlBuildStyles)
+  default:0, bold:1, title:2, titleSub:3, caption:4, tableHeader:5,
+  cellLabel:6, cellLabelBold:7, cellCurrency:8, cellCurrencyBold:9, cellPercent:10, cellPercentBold:11
+};
+function xlBuildFreeformSheet(rows, opts){
+  // rows: array of arrays of {v,type:'n'|'s',style?:keyof XL_STYLE}
+  opts = opts||{};
   let maxCols=0; rows.forEach(r=>{ if(r.length>maxCols) maxCols=r.length; });
   const lastCol = xlColLetter(Math.max(maxCols,1));
   let xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   xml += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
-  xml += `<dimension ref="A1:${lastCol}${Math.max(rows.length,1)}"/><sheetData>`;
+  xml += `<dimension ref="A1:${lastCol}${Math.max(rows.length,1)}"/>`;
+  xml += xlColsXml(opts.colWidths);
+  xml += `<sheetData>`;
   rows.forEach((row,ri)=>{
     const r = ri+1;
-    xml += `<row r="${r}">`;
+    const rowHeight = opts.rowHeights&&opts.rowHeights[ri]?` ht="${opts.rowHeights[ri]}" customHeight="1"`:'';
+    xml += `<row r="${r}"${rowHeight}>`;
     row.forEach((cell,ci)=>{
       if(cell==null) return;
       const ref = xlColLetter(ci+1)+r;
-      const s = cell.bold?' s="1"':'';
+      const sIdx = XL_STYLE[cell.style]||0;
+      const s = sIdx?` s="${sIdx}"`:'';
       if(cell.type==='s'){ xml += `<c r="${ref}" t="inlineStr"${s}><is><t>${xlEsc(cell.v)}</t></is></c>`; }
       else { const v=(typeof cell.v==='number'&&isFinite(cell.v))?cell.v:0; xml += `<c r="${ref}"${s}><v>${v}</v></c>`; }
     });
     xml += `</row>`;
   });
-  xml += `</sheetData></worksheet>`;
+  xml += `</sheetData>`;
+  if(opts.merges&&opts.merges.length){
+    xml += `<mergeCells count="${opts.merges.length}">${opts.merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells>`;
+  }
+  xml += `</worksheet>`;
   return xml;
 }
 function xlBuildChartsSheet(){
@@ -1099,13 +1132,42 @@ function xlBuildChartsSheet(){
 function xlBuildStyles(){
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
 `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="2"><font><sz val="10"/><name val="Calibri"/></font><font><b/><sz val="10"/><name val="Calibri"/></font></fonts>
-  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
-  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+  <numFmts count="2">
+    <numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0"/>
+    <numFmt numFmtId="165" formatCode="0.00%"/>
+  </numFmts>
+  <fonts count="6">
+    <font><sz val="10"/><name val="Calibri"/></font>
+    <font><b/><sz val="10"/><name val="Calibri"/></font>
+    <font><b/><sz val="20"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font><sz val="10"/><color rgb="FFCBD5E1"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><color rgb="FF1E3A5F"/><name val="Calibri"/></font>
+    <font><b/><sz val="9"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="4">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF1E3A5F"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border>
+  </borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="2">
+  <cellXfs count="12">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
     <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" horizontal="left" indent="1"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" horizontal="left" indent="1"/></xf>
+    <xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="5" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" indent="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" indent="1"/></xf>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" indent="1"/></xf>
+    <xf numFmtId="164" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" indent="1"/></xf>
+    <xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" indent="1"/></xf>
+    <xf numFmtId="165" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" indent="1"/></xf>
   </cellXfs>
 </styleSheet>`;
 }
@@ -1187,8 +1249,8 @@ function xlBuildDrawingXml(chartCount){
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
     `<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">${anchors}</xdr:wsDr>`;
 }
-async function xlBuildWorkbook({sheets, charts}){
-  // sheets: [{name, xml}], first sheet is data, last is charts host
+async function xlBuildWorkbook({sheets, charts, chartsSheetIndex}){
+  // sheets: [{name, xml}]; chartsSheetIndex is the 1-based position of the sheet that hosts the drawing
   const zip = new JSZip();
   const sheetOverrides = sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('\n  ');
   const chartOverrides = charts.map((c,i)=>`<Override PartName="/xl/charts/chart${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`).join('\n  ');
@@ -1225,7 +1287,7 @@ async function xlBuildWorkbook({sheets, charts}){
 </Relationships>`);
   zip.file('xl/styles.xml', xlBuildStyles());
   sheets.forEach((s,i)=>{ zip.file(`xl/worksheets/sheet${i+1}.xml`, s.xml); });
-  const chartsSheetIdx = sheets.length; // 1-based sheet number of the charts host sheet
+  const chartsSheetIdx = chartsSheetIndex || sheets.length; // 1-based sheet number of the charts host sheet
   zip.folder('xl/worksheets/_rels').file(`sheet${chartsSheetIdx}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
@@ -1265,23 +1327,30 @@ async function exportReportToExcel(results, form) {
     return cells;
   });
 
-  // ── Summary sheet ──
+  // ── Summary sheet (styled: title banner, section captions, bordered tables, currency/percent formats) ──
   const summaryRows = [
-    [{v:form.projectName||'Escalation Report',type:'s',bold:true}],
-    [{v:'Estimate #: '+(form.estimateNumber||'—')+'   Bid #: '+(form.bidNumber||'—'),type:'s'}],
-    [{v:'Schedule: '+(form.scheduleStart||'—')+' to '+(form.scheduleEnd||'—'),type:'s'}],
+    [{v:form.projectName||'Escalation Report',type:'s',style:'title'}],
+    [{v:'Estimate #: '+(form.estimateNumber||'—')+'    |    Bid #: '+(form.bidNumber||'—'),type:'s',style:'titleSub'}],
+    [{v:'Schedule: '+(form.scheduleStart||'—')+'  to  '+(form.scheduleEnd||'—'),type:'s',style:'titleSub'}],
     [],
-    [{v:'Category',type:'s',bold:true},{v:'Original Budget',type:'s',bold:true},{v:'Escalated Total',type:'s',bold:true},{v:'Difference',type:'s',bold:true},{v:'Esc. %',type:'s',bold:true}],
-    [{v:'Materials',type:'s'},{v:s.budgetedMaterial||0,type:'n'},{v:s.escalatedMaterial||0,type:'n'},{v:s.materialDifference||0,type:'n'},{v:s.materialEscPercent||0,type:'n'}],
-    [{v:'Labor',type:'s'},{v:s.budgetedLabor||0,type:'n'},{v:s.escalatedLabor||0,type:'n'},{v:s.laborDifference||0,type:'n'},{v:s.laborEscPercent||0,type:'n'}],
-    [{v:'TOTAL',type:'s',bold:true},{v:s.totalBudget||0,type:'n',bold:true},{v:s.totalEscalated||0,type:'n',bold:true},{v:s.totalDifference||0,type:'n',bold:true},{v:s.totalEscPercent||0,type:'n',bold:true}],
+    [{v:'COST SUMMARY',type:'s',style:'caption'}],
+    [{v:'Category',type:'s',style:'tableHeader'},{v:'Original Budget',type:'s',style:'tableHeader'},{v:'Escalated Total',type:'s',style:'tableHeader'},{v:'Difference',type:'s',style:'tableHeader'},{v:'Esc. %',type:'s',style:'tableHeader'}],
+    [{v:'Materials',type:'s',style:'cellLabel'},{v:s.budgetedMaterial||0,type:'n',style:'cellCurrency'},{v:s.escalatedMaterial||0,type:'n',style:'cellCurrency'},{v:s.materialDifference||0,type:'n',style:'cellCurrency'},{v:s.materialEscPercent||0,type:'n',style:'cellPercent'}],
+    [{v:'Labor',type:'s',style:'cellLabel'},{v:s.budgetedLabor||0,type:'n',style:'cellCurrency'},{v:s.escalatedLabor||0,type:'n',style:'cellCurrency'},{v:s.laborDifference||0,type:'n',style:'cellCurrency'},{v:s.laborEscPercent||0,type:'n',style:'cellPercent'}],
+    [{v:'TOTAL',type:'s',style:'cellLabelBold'},{v:s.totalBudget||0,type:'n',style:'cellCurrencyBold'},{v:s.totalEscalated||0,type:'n',style:'cellCurrencyBold'},{v:s.totalDifference||0,type:'n',style:'cellCurrencyBold'},{v:s.totalEscPercent||0,type:'n',style:'cellPercentBold'}],
     [],
-    [{v:'Phase',type:'s',bold:true},{v:'Original Budget',type:'s',bold:true},{v:'Escalated Total',type:'s',bold:true},{v:'Difference',type:'s',bold:true},{v:'Esc. %',type:'s',bold:true}],
+    [{v:'PHASE BREAKDOWN',type:'s',style:'caption'}],
+    [{v:'Phase',type:'s',style:'tableHeader'},{v:'Original Budget',type:'s',style:'tableHeader'},{v:'Escalated Total',type:'s',style:'tableHeader'},{v:'Difference',type:'s',style:'tableHeader'},{v:'Esc. %',type:'s',style:'tableHeader'}],
     ...(results.phaseBreakdown||[]).map(ph=>[
-      {v:ph.phaseName,type:'s'}, {v:ph.phaseTotal.budgeted,type:'n'}, {v:ph.phaseTotal.escalated,type:'n'},
-      {v:ph.phaseTotal.difference,type:'n'}, {v:ph.phaseTotal.escPercent,type:'n'}
+      {v:ph.phaseName,type:'s',style:'cellLabel'}, {v:ph.phaseTotal.budgeted,type:'n',style:'cellCurrency'}, {v:ph.phaseTotal.escalated,type:'n',style:'cellCurrency'},
+      {v:ph.phaseTotal.difference,type:'n',style:'cellCurrency'}, {v:ph.phaseTotal.escPercent,type:'n',style:'cellPercent'}
     ]),
   ];
+  const summaryOpts = {
+    colWidths: [26,18,18,16,12],
+    merges: ['A1:E1','A2:E2','A3:E3'],
+    rowHeights: {0:28},
+  };
 
   // ── Native charts ──
   const catRowStart = 2, catRowEnd = weeklyData.length+1;
@@ -1316,13 +1385,15 @@ async function exportReportToExcel(results, form) {
     stacked:false, valueFmt:'0'
   }));
 
+  // Sheet order: Summary, Charts, Data (Data pushed to the end since it's mainly reference detail)
+  const dataColWidths = [6,12,10,10,14, ...matCols.map(()=>14), ...labCols.map(()=>14), 14,14];
   const sheets = [
-    { name:'Summary', xml: xlBuildFreeformSheet(summaryRows) },
-    { name:'Data', xml: xlBuildDataSheet(headers, dataRows) },
+    { name:'Summary', xml: xlBuildFreeformSheet(summaryRows, summaryOpts) },
     { name:'Charts', xml: xlBuildChartsSheet() },
+    { name:'Data', xml: xlBuildDataSheet(headers, dataRows, dataColWidths) },
   ];
 
-  const blob = await xlBuildWorkbook({ sheets, charts });
+  const blob = await xlBuildWorkbook({ sheets, charts, chartsSheetIndex:2 });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1652,7 +1723,7 @@ function Results({results,formData,onClear,onSave}){
     React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.laborSeries||[],title:'Labor Cost Breakdown Per Type',subtitle:'Weekly escalated labor cost, stacked by labor type',palette:['#ea580c','#c2410c','#f97316','#9a3412','#fb923c','#7c2d12','#fdba74','#dc2626']}),
     React.createElement('div',{className:'report-chart-card',style:CARD},
       React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Worker Hours per Week'),
-      React.createElement(ResponsiveContainer,{width:'100%',height:300},React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44}),React.createElement(Tooltip,{content:React.createElement(HrsTip,null)}),React.createElement(Bar,{dataKey:'hours',name:'Hours',fill:'#9333ea',radius:[3,3,0,0]}),React.createElement(ReferenceLine,{y:avgHoursPerWeek,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgHoursPerWeek,1),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}})))
+      React.createElement(ResponsiveContainer,{width:'100%',height:300},React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44,tickCount:9}),React.createElement(Tooltip,{content:React.createElement(HrsTip,null)}),React.createElement(Bar,{dataKey:'hours',name:'Hours',fill:'#9333ea',radius:[3,3,0,0]}),React.createElement(ReferenceLine,{y:avgHoursPerWeek,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgHoursPerWeek,1),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}})))
     ),
     React.createElement(WorkersPerWeekChart,{weeklyData:weeklyData,blockHours:results.blockHours}),
     React.createElement('div',{style:{...CARD,padding:0}},
@@ -1764,6 +1835,7 @@ function HomeDashboard({user, onNewProject, onLoadProject, onShowProjects, toast
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [thisMonth, setThisMonth] = useState(0);
+  const [deleting, setDeleting] = useState(null);
   const curves = loadCurves();
   const activeCurves = curves.filter(c=>c.is_active);
   const name = user.user_metadata?.full_name || user.email.split('@')[0];
@@ -1780,6 +1852,19 @@ function HomeDashboard({user, onNewProject, onLoadProject, onShowProjects, toast
       setThisMonth(monthCount);
     }).catch(e => error(e.message)).finally(() => setLoading(false));
   }, []);
+
+  async function deleteProject(e, id, projName) {
+    e.stopPropagation();
+    if (!window.confirm(`Delete "${projName||'Untitled'}"? This cannot be undone.`)) return;
+    setDeleting(id);
+    try {
+      await sbDeleteProject(id);
+      setRecent(r => r.filter(x => x.id !== id));
+      setTotal(t => Math.max(0, t-1));
+      toast('Project deleted.');
+    } catch(err) { error(err.message); }
+    finally { setDeleting(null); }
+  }
 
   const fmtDt = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const greeting = (() => {
@@ -1838,7 +1923,10 @@ function HomeDashboard({user, onNewProject, onLoadProject, onShowProjects, toast
                     React.createElement('div',{style:{fontSize:13,fontWeight:600,color:'#1e293b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},p.project_name||'Untitled'),
                     React.createElement('div',{style:{fontSize:11,color:'#94a3b8',marginTop:2}},p.estimate_number?`${p.estimate_number} · `:'',`Updated ${fmtDt(p.updated_at||p.created_at)}`)
                   ),
-                  React.createElement('span',{style:{fontSize:12,fontWeight:600,color:'#2563eb'}},'Open →')
+                  React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,flexShrink:0}},
+                    React.createElement('button',{onClick:(e)=>deleteProject(e,p.id,p.project_name),disabled:deleting===p.id,style:{fontSize:11,fontWeight:600,color:'#dc2626',background:'#fef2f2',border:'none',borderRadius:6,padding:'4px 10px',cursor:'pointer'}},deleting===p.id?'…':'Delete'),
+                    React.createElement('span',{style:{fontSize:12,fontWeight:600,color:'#2563eb'}},'Open →')
+                  )
                 ))
         ),
 
@@ -1891,8 +1979,15 @@ function Calculator({toast,error,user,loadedProject,onProjectLoaded}){
 
   async function saveProject(){
     if(!user){error('Please sign in to save projects.');return;}
+    if(!(form.estimateNumber||'').trim()){error('Please enter an Estimate # before saving.');return;}
     setSaving(true);
     try{
+      const dup = await sbFindDuplicateEstimateNumber(form.estimateNumber, savedProjectId);
+      if(dup){
+        error(`Estimate # "${form.estimateNumber}" is already used by "${dup.project_name||'Untitled'}". Please use a unique estimate number.`);
+        setSaving(false);
+        return;
+      }
       if(savedProjectId){
         await sbUpdateProject(savedProjectId,form,results);
         toast('Project updated!');
