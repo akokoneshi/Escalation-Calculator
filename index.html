@@ -611,34 +611,36 @@ function generateAdaptiveWeights(totalWeeks, estimatedHours, blockHours) {
 }
 let _escIdCounter=0;
 function genEscId(){return 'esc_'+(++_escIdCounter)+'_'+Math.random().toString(36).slice(2,7);}
-function newEscalationDate(){return {id:genEscId(),date:'',recurring:true};}
+function newEscalationDate(defaultPercent){return {id:genEscId(),date:'',recurring:true,percent:defaultPercent!==undefined?defaultPercent:''};}
 // Normalizes an item's escalation dates: migrates legacy single anniversaryDate string
 // into the escalationDates array, and guarantees at least one row exists.
 function normalizeEscalationDates(item){
+  const legacyPct=item.escalationPercent!==undefined&&item.escalationPercent!==''?item.escalationPercent:'';
   if(Array.isArray(item.escalationDates)&&item.escalationDates.length){
-    return item.escalationDates.map(d=>({id:d.id||genEscId(),date:d.date||'',recurring:d.recurring!==false}));
+    return item.escalationDates.map(d=>({id:d.id||genEscId(),date:d.date||'',recurring:d.recurring!==false,percent:(d.percent!==undefined&&d.percent!=='')?d.percent:legacyPct}));
   }
   if(item.anniversaryDate){
-    return [{id:genEscId(),date:item.anniversaryDate,recurring:true}];
+    return [{id:genEscId(),date:item.anniversaryDate,recurring:true,percent:legacyPct}];
   }
-  return [newEscalationDate()];
+  return [newEscalationDate(legacyPct)];
 }
-function getEscalationFactor(escalationDates, escalationPct, weekDate) {
+function getEscalationFactor(escalationDates, weekDate) {
   const week=new Date(weekDate); week.setHours(0,0,0,0);
-  const dates=Array.isArray(escalationDates)?escalationDates:(escalationDates?[{date:escalationDates,recurring:true}]:[]);
+  const dates=Array.isArray(escalationDates)?escalationDates:(escalationDates?[{date:escalationDates,recurring:true,percent:0}]:[]);
   let factor=1;
   for(const ed of dates){
     if(!ed||!ed.date) continue;
+    const pct=parseFloat(ed.percent)||0;
     const anniv=new Date(ed.date); anniv.setHours(0,0,0,0);
     if(anniv>week) continue;
     if(ed.recurring===false){
       // One-time bump: applies once, from its date forward
-      factor*=(1+escalationPct/100);
+      factor*=(1+pct/100);
     } else {
       // Recurring: compounds once per year that has elapsed by the current week
       let count=0, check=new Date(anniv);
       while(check<=week){count++;check.setFullYear(check.getFullYear()+1);}
-      factor*=Math.pow(1+escalationPct/100,count);
+      factor*=Math.pow(1+pct/100,count);
     }
   }
   return factor;
@@ -681,11 +683,10 @@ function calculate(form, curves) {
     const matResults=[];
     for(const mat of phase.materials){
       const budget=parseFloat(String(mat.budget).replace(/[^0-9.]/g,''))||0;
-      const escalationPct=parseFloat(mat.escalationPercent)||0;
       let totalEscalated=0;
       const matWeekly=new Array(allWeeks.length).fill(0);
       phaseWeeks.forEach((weekDate,wi)=>{
-        const factor=getEscalationFactor(mat.escalationDates,escalationPct,weekDate);
+        const factor=getEscalationFactor(mat.escalationDates,weekDate);
         const weekCost=budget*normWeights[wi]*factor;
         const gi=weeklyMap.findIndex(w=>w.weekDate.toDateString()===weekDate.toDateString());
         if(gi>=0){weeklyMap[gi].materialCost+=weekCost;phaseWeeklyCost[gi]+=weekCost;phaseWeeklyMat[gi]+=weekCost;matWeekly[gi]+=weekCost;}
@@ -698,11 +699,10 @@ function calculate(form, curves) {
     const labResults=[];
     for(const lab of phase.labors){
       const budget=parseFloat(String(lab.budget).replace(/[^0-9.]/g,''))||0;
-      const escalationPct=parseFloat(lab.escalationPercent)||0;
       let totalEscalated=0;
       const labWeekly=new Array(allWeeks.length).fill(0);
       phaseWeeks.forEach((weekDate,wi)=>{
-        const factor=getEscalationFactor(lab.escalationDates,escalationPct,weekDate);
+        const factor=getEscalationFactor(lab.escalationDates,weekDate);
         const weekCost=budget*normWeights[wi]*factor;
         const gi=weeklyMap.findIndex(w=>w.weekDate.toDateString()===weekDate.toDateString());
         if(gi>=0){weeklyMap[gi].laborCost+=weekCost;phaseWeeklyCost[gi]+=weekCost;phaseWeeklyLab[gi]+=weekCost;labWeekly[gi]+=weekCost;}
@@ -814,8 +814,8 @@ function getBlockHours(workDays){
   const count=DAY_KEYS.reduce((s,k)=>s+(wd[k]?1:0),0);
   return 8*(count||5);
 }
-const newMat=()=>({name:'',budget:'',escalationPercent:'',escalationDates:[newEscalationDate()]});
-const newLab=()=>({name:'',budget:'',escalationPercent:'',escalationDates:[newEscalationDate()]});
+const newMat=()=>({name:'',budget:'',escalationDates:[newEscalationDate()]});
+const newLab=()=>({name:'',budget:'',escalationDates:[newEscalationDate()]});
 const newPhase=()=>({name:'',startDate:'',endDate:'',estimatedHours:'',curveId:'',materials:[newMat()],labors:[newLab()]});
 const defaultForm=()=>{const t=new Date().toISOString().slice(0,10);return {projectName:'',estimateNumber:'',bidNumber:'',date:t,bidDate:'',scheduleStart:'',scheduleEnd:'',workDays:defaultWorkDays(),phases:[newPhase()]};}
 
@@ -827,19 +827,22 @@ function EscalationDatesEditor({dates,onChange,bidDate,accent}){
   function remDate(i){onChange(list.filter((_,j)=>j!==i));}
   return React.createElement('div',{style:{marginTop:8}},
     React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}},
-      React.createElement(Label,{required:true},'Escalation Date(s)'),
+      React.createElement(Label,{required:true},'Escalation Date(s) & %'),
       list.length<5&&React.createElement('button',{type:'button',onClick:addDate,style:{background:'none',border:'none',cursor:'pointer',fontSize:10,color:accent||'#c4b5fd',fontWeight:600}},'+ Add date')
     ),
     list.map((d,i)=>React.createElement('div',{key:d.id||i,style:{marginBottom:6}},
       React.createElement('div',{style:{display:'flex',gap:6,alignItems:'center'}},
-        React.createElement('div',{style:{flex:1}},
+        React.createElement('div',{style:{flex:'1 1 auto',minWidth:0}},
           React.createElement(SInput,{type:'date',value:d.date,onChange:e=>updDate(i,'date',e.target.value),error:d.date&&bidDate&&d.date<=bidDate})
         ),
-        React.createElement('label',{style:{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'#94a3b8',whiteSpace:'nowrap',cursor:'pointer'}},
-          React.createElement('input',{type:'checkbox',checked:d.recurring!==false,onChange:e=>updDate(i,'recurring',e.target.checked),style:{cursor:'pointer'}}),
-          'Recurring yearly'
+        React.createElement('div',{style:{width:60,flex:'0 0 auto'}},
+          React.createElement(SInput,{type:'number',min:'0',step:'0.01',value:d.percent,onChange:e=>updDate(i,'percent',e.target.value),placeholder:'%'})
         ),
-        list.length>1&&React.createElement('button',{type:'button',onClick:()=>remDate(i),style:{background:'none',border:'none',cursor:'pointer',fontSize:10,color:'#f87171',fontWeight:500}},'✕')
+        list.length>1&&React.createElement('button',{type:'button',onClick:()=>remDate(i),style:{background:'none',border:'none',cursor:'pointer',fontSize:10,color:'#f87171',fontWeight:500,flex:'0 0 auto'}},'✕')
+      ),
+      React.createElement('label',{style:{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'#94a3b8',whiteSpace:'nowrap',cursor:'pointer',marginTop:4}},
+        React.createElement('input',{type:'checkbox',checked:d.recurring!==false,onChange:e=>updDate(i,'recurring',e.target.checked),style:{cursor:'pointer'}}),
+        'Recurring yearly'
       ),
       d.date&&bidDate&&d.date<=bidDate&&React.createElement('p',{style:{color:'#f87171',fontSize:10,marginTop:3}},'⚠ Must be after bid date')
     ))
@@ -862,10 +865,7 @@ function MaterialsForm({phase,phaseIdx,onChange,bidDate}){
         i>0&&React.createElement('button',{type:'button',onClick:()=>rem(i),style:{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#f87171',fontWeight:500}},'Remove')
       ),
       React.createElement('div',{style:{marginBottom:8}},React.createElement(Label,{required:true},'Name'),React.createElement(SInput,{value:m.name,onChange:e=>upd(i,'name',e.target.value),placeholder:'e.g. Insulation'})),
-      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
-        React.createElement('div',null,React.createElement(Label,{required:true},'Budget'),React.createElement(AccountingInput,{value:m.budget,onChange:e=>upd(i,'budget',e.target.value)})),
-        React.createElement('div',null,React.createElement(Label,{required:true},'Esc. %'),React.createElement(SInput,{type:'number',min:'0',step:'0.01',value:m.escalationPercent,onChange:e=>upd(i,'escalationPercent',e.target.value),placeholder:'0.00'}))
-      ),
+      React.createElement('div',{style:{marginBottom:8}},React.createElement(Label,{required:true},'Budget'),React.createElement(AccountingInput,{value:m.budget,onChange:e=>upd(i,'budget',e.target.value)})),
       React.createElement(EscalationDatesEditor,{dates:m.escalationDates,onChange:d=>upd(i,'escalationDates',d),bidDate:bidDate,accent:'#c4b5fd'})
     ))
   );
@@ -887,10 +887,7 @@ function LaborForm({phase,phaseIdx,onChange,bidDate}){
         i>0&&React.createElement('button',{type:'button',onClick:()=>rem(i),style:{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#f87171',fontWeight:500}},'Remove')
       ),
       React.createElement('div',{style:{marginBottom:8}},React.createElement(Label,{required:true},'Name'),React.createElement(SInput,{value:l.name,onChange:e=>upd(i,'name',e.target.value),placeholder:'e.g. Insulator'})),
-      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
-        React.createElement('div',null,React.createElement(Label,{required:true},'Budget'),React.createElement(AccountingInput,{value:l.budget,onChange:e=>upd(i,'budget',e.target.value)})),
-        React.createElement('div',null,React.createElement(Label,{required:true},'Esc. %'),React.createElement(SInput,{type:'number',min:'0',step:'0.01',value:l.escalationPercent,onChange:e=>upd(i,'escalationPercent',e.target.value),placeholder:'0.00'}))
-      ),
+      React.createElement('div',{style:{marginBottom:8}},React.createElement(Label,{required:true},'Budget'),React.createElement(AccountingInput,{value:l.budget,onChange:e=>upd(i,'budget',e.target.value)})),
       React.createElement(EscalationDatesEditor,{dates:l.escalationDates,onChange:d=>upd(i,'escalationDates',d),bidDate:bidDate,accent:'#fca5a5'})
     ))
   );
@@ -1413,22 +1410,21 @@ function randomFill(curves){
     const phaseLen=rand(6,18);
     const phaseEnd=addMonths(phaseStart,phaseLen);
     // Anniversary must be AFTER bid date - use bidDate + rand months
-    const genDates=()=>Array.from({length:rand(1,2)},(_,di)=>({
+    const genDates=(minPct,maxPct)=>Array.from({length:rand(1,2)},(_,di)=>({
       id:genEscId(),
       date:fmtDate(addMonths(bidDate,rand(1,6)+di*6)),
       recurring:rand(0,3)>0,
+      percent:String(rand(minPct,maxPct)),
     }));
     const materials=Array.from({length:rand(1,3)},()=>({
       name:matNames[rand(0,matNames.length-1)],
       budget:String(rand(100,5000)*1000),
-      escalationPercent:String(rand(2,12)),
-      escalationDates:genDates(),
+      escalationDates:genDates(2,12),
     }));
     const labors=Array.from({length:rand(1,2)},()=>({
       name:labNames[rand(0,labNames.length-1)],
       budget:String(rand(50,3000)*1000),
-      escalationPercent:String(rand(2,8)),
-      escalationDates:genDates(),
+      escalationDates:genDates(2,8),
     }));
     const curve=activeCurves[rand(0,activeCurves.length-1)];
     phases.push({name:'Phase '+(p+1),startDate:fmtDate(phaseStart),endDate:fmtDate(phaseEnd),estimatedHours:String(rand(1000,50000)),curveId:curve?curve.id:'',materials,labors});
