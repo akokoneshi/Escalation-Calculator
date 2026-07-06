@@ -19,6 +19,7 @@ select option{background:#1e3a5f;color:white}
 <body>
 <div id="root"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
 /**
  * @license React
@@ -943,10 +944,10 @@ function PhaseOverlapChart({phaseOverlapData,phaseNames}){
       payload.map((p,i)=>React.createElement('p',{key:i,style:{color:p.color}},p.name+': $'+Math.round(p.value).toLocaleString()))
     );
   };
-  return React.createElement('div',{style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
+  return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
     React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},'Phase Cost Distribution'),
     React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},'Weekly escalated cost per phase — lines show 0 outside each phase\'s active dates'),
-    React.createElement('div',{style:{display:'flex',gap:16,flexWrap:'wrap',marginBottom:12}},
+    React.createElement('div',{className:'report-chart-legend',style:{display:'flex',gap:16,flexWrap:'wrap',marginBottom:12}},
       phaseNames.map((name,i)=>React.createElement('div',{key:name,style:{display:'flex',alignItems:'center',gap:6}},
         React.createElement('div',{style:{width:16,height:3,borderRadius:2,background:COLORS[i%COLORS.length]}}),
         React.createElement('span',{style:{fontSize:11,color:'#374151',fontWeight:500}},name)
@@ -981,10 +982,10 @@ function CostBreakdownChart({weeklyData,series,title,subtitle,palette}){
   const weekTotals=weeklyData.map(w=>series.reduce((s,m)=>s+(w[m.key]||0),0));
   const activeTotals=weekTotals.filter(t=>t>0);
   const avgTotal=activeTotals.length?activeTotals.reduce((s,t)=>s+t,0)/activeTotals.length:0;
-  return React.createElement('div',{style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
+  return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
     React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},title),
     React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},subtitle),
-    React.createElement('div',{style:{display:'flex',gap:16,flexWrap:'wrap',marginBottom:12}},
+    React.createElement('div',{className:'report-chart-legend',style:{display:'flex',gap:16,flexWrap:'wrap',marginBottom:12}},
       series.map((m,i)=>React.createElement('div',{key:m.key,style:{display:'flex',alignItems:'center',gap:6}},
         React.createElement('div',{style:{width:12,height:12,borderRadius:3,background:COLORS[i%COLORS.length]}}),
         React.createElement('span',{style:{fontSize:11,color:'#374151',fontWeight:500}},m.name)
@@ -1021,7 +1022,7 @@ function WorkersPerWeekChart({weeklyData,blockHours}){
       React.createElement('p',{style:{color:'#f97316',marginTop:2}},`Avg: ${fmtNum(avgWorkers,0)}`)
     );
   };
-  return React.createElement('div',{style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
+  return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
     React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},'Workers per Week'),
     React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},`Crew size per week (${bh} hrs = 1 worker, rounded up to whole people) \u2014 dashed line shows the average across active weeks`),
     React.createElement(ResponsiveContainer,{width:'100%',height:300},
@@ -1037,6 +1038,301 @@ function WorkersPerWeekChart({weeklyData,blockHours}){
   );
 }
 
+/* ── Excel export (native, interactive charts via hand-built OOXML) ── */
+function xlColLetter(n){ // 1-based index -> column letter (A, B, ... Z, AA, ...)
+  let s='';
+  while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); }
+  return s;
+}
+function xlEsc(str){
+  return String(str==null?'':str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function xlBuildDataSheet(headers, rows){
+  let xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  xml += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
+  const lastCol = xlColLetter(headers.length);
+  const lastRow = rows.length + 1;
+  xml += `<dimension ref="A1:${lastCol}${lastRow}"/><sheetData>`;
+  xml += `<row r="1">`;
+  headers.forEach((h,i)=>{ xml += `<c r="${xlColLetter(i+1)}1" t="inlineStr" s="1"><is><t>${xlEsc(h)}</t></is></c>`; });
+  xml += `</row>`;
+  rows.forEach((row,ri)=>{
+    const r = ri+2;
+    xml += `<row r="${r}">`;
+    row.forEach((cell,ci)=>{
+      const ref = xlColLetter(ci+1)+r;
+      if(cell.type==='s'){ xml += `<c r="${ref}" t="inlineStr"><is><t>${xlEsc(cell.v)}</t></is></c>`; }
+      else { const v=(typeof cell.v==='number'&&isFinite(cell.v))?cell.v:0; xml += `<c r="${ref}"><v>${v}</v></c>`; }
+    });
+    xml += `</row>`;
+  });
+  xml += `</sheetData></worksheet>`;
+  return xml;
+}
+function xlBuildFreeformSheet(rows){
+  // rows: array of arrays of {v,type:'n'|'s',bold?:true}
+  let maxCols=0; rows.forEach(r=>{ if(r.length>maxCols) maxCols=r.length; });
+  const lastCol = xlColLetter(Math.max(maxCols,1));
+  let xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  xml += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
+  xml += `<dimension ref="A1:${lastCol}${Math.max(rows.length,1)}"/><sheetData>`;
+  rows.forEach((row,ri)=>{
+    const r = ri+1;
+    xml += `<row r="${r}">`;
+    row.forEach((cell,ci)=>{
+      if(cell==null) return;
+      const ref = xlColLetter(ci+1)+r;
+      const s = cell.bold?' s="1"':'';
+      if(cell.type==='s'){ xml += `<c r="${ref}" t="inlineStr"${s}><is><t>${xlEsc(cell.v)}</t></is></c>`; }
+      else { const v=(typeof cell.v==='number'&&isFinite(cell.v))?cell.v:0; xml += `<c r="${ref}"${s}><v>${v}</v></c>`; }
+    });
+    xml += `</row>`;
+  });
+  xml += `</sheetData></worksheet>`;
+  return xml;
+}
+function xlBuildChartsSheet(){
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+    '<dimension ref="A1"/><sheetData/><drawing r:id="rId1"/></worksheet>';
+}
+function xlBuildStyles(){
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+`<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="2"><font><sz val="10"/><name val="Calibri"/></font><font><b/><sz val="10"/><name val="Calibri"/></font></fonts>
+  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
+  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="2">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+  </cellXfs>
+</styleSheet>`;
+}
+function xlBuildBarChartXml({title,sheetName,catColLetter,catRowStart,catRowEnd,catLabels,series,stacked,valueFmt}){
+  const axId1 = 111111100 + Math.floor(Math.random()*899);
+  const axId2 = 222222200 + Math.floor(Math.random()*899);
+  const catRef = `${sheetName}!$${catColLetter}$${catRowStart}:$${catColLetter}$${catRowEnd}`;
+  const catCache = catLabels.map((v,i)=>`<c:pt idx="${i}"><c:v>${xlEsc(v)}</c:v></c:pt>`).join('');
+  let serXml='';
+  series.forEach((s,idx)=>{
+    const valRef = `${sheetName}!$${s.colLetter}$${catRowStart}:$${s.colLetter}$${catRowEnd}`;
+    const nameRef = `${sheetName}!$${s.colLetter}$1`;
+    const numCache = s.values.map((v,i)=>`<c:pt idx="${i}"><c:v>${(typeof v==='number'&&isFinite(v))?v:0}</c:v></c:pt>`).join('');
+    serXml += `<c:ser>
+      <c:idx val="${idx}"/><c:order val="${idx}"/>
+      <c:tx><c:strRef><c:f>${nameRef}</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>${xlEsc(s.name)}</c:v></c:pt></c:strCache></c:strRef></c:tx>
+      <c:cat><c:strRef><c:f>${catRef}</c:f><c:strCache><c:ptCount val="${catLabels.length}"/>${catCache}</c:strCache></c:strRef></c:cat>
+      <c:val><c:numRef><c:f>${valRef}</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${s.values.length}"/>${numCache}</c:numCache></c:numRef></c:val>
+    </c:ser>`;
+  });
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+`<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <c:chart>
+    <c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>${xlEsc(title)}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
+    <c:autoTitleDeleted val="0"/>
+    <c:plotArea>
+      <c:layout/>
+      <c:barChart>
+        <c:barDir val="col"/>
+        <c:grouping val="${stacked?'stacked':'clustered'}"/>
+        <c:varyColors val="0"/>
+        ${serXml}
+        ${stacked?'<c:overlap val="100"/>':''}
+        <c:axId val="${axId1}"/>
+        <c:axId val="${axId2}"/>
+      </c:barChart>
+      <c:catAx>
+        <c:axId val="${axId1}"/>
+        <c:scaling><c:orientation val="minMax"/></c:scaling>
+        <c:delete val="0"/>
+        <c:axPos val="b"/>
+        <c:txPr><a:bodyPr rot="-2700000" vert="horz"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="800"/></a:pPr><a:endParaRPr lang="en-US"/></a:p></c:txPr>
+        <c:crossAx val="${axId2}"/>
+      </c:catAx>
+      <c:valAx>
+        <c:axId val="${axId2}"/>
+        <c:scaling><c:orientation val="minMax"/></c:scaling>
+        <c:delete val="0"/>
+        <c:axPos val="l"/>
+        <c:majorGridlines/>
+        <c:numFmt formatCode="${xlEsc(valueFmt||'General')}" sourceLinked="0"/>
+        <c:crossAx val="${axId1}"/>
+      </c:valAx>
+    </c:plotArea>
+    <c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>
+    <c:plotVisOnly val="1"/>
+  </c:chart>
+</c:chartSpace>`;
+}
+function xlBuildDrawingXml(chartCount){
+  const positions = [
+    {c0:0,r0:0,c1:9,r1:20},{c0:9,r0:0,c1:18,r1:20},
+    {c0:0,r0:21,c1:9,r1:41},{c0:9,r0:21,c1:18,r1:41},
+  ];
+  let anchors='';
+  for(let i=0;i<chartCount;i++){
+    const p = positions[i%positions.length];
+    anchors += `<xdr:twoCellAnchor>
+      <xdr:from><xdr:col>${p.c0}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${p.r0}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
+      <xdr:to><xdr:col>${p.c1}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${p.r1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
+      <xdr:graphicFrame macro="">
+        <xdr:nvGraphicFramePr><xdr:cNvPr id="${i+2}" name="Chart ${i+1}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>
+        <xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>
+        <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId${i+1}"/></a:graphicData></a:graphic>
+      </xdr:graphicFrame>
+      <xdr:clientData/>
+    </xdr:twoCellAnchor>`;
+  }
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+    `<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">${anchors}</xdr:wsDr>`;
+}
+async function xlBuildWorkbook({sheets, charts}){
+  // sheets: [{name, xml}], first sheet is data, last is charts host
+  const zip = new JSZip();
+  const sheetOverrides = sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('\n  ');
+  const chartOverrides = charts.map((c,i)=>`<Override PartName="/xl/charts/chart${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`).join('\n  ');
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  ${sheetOverrides}
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>
+  ${chartOverrides}
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`);
+  zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`);
+  const sheetTags = sheets.map((s,i)=>`<sheet name="${xlEsc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('\n    ');
+  zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    ${sheetTags}
+  </sheets>
+</workbook>`);
+  const wbRelTags = sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('\n  ');
+  zip.folder('xl').folder('_rels').file('workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  ${wbRelTags}
+  <Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`);
+  zip.file('xl/styles.xml', xlBuildStyles());
+  sheets.forEach((s,i)=>{ zip.file(`xl/worksheets/sheet${i+1}.xml`, s.xml); });
+  const chartsSheetIdx = sheets.length; // 1-based sheet number of the charts host sheet
+  zip.folder('xl/worksheets/_rels').file(`sheet${chartsSheetIdx}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
+</Relationships>`);
+  zip.file('xl/drawings/drawing1.xml', xlBuildDrawingXml(charts.length));
+  const drawRelTags = charts.map((c,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart${i+1}.xml"/>`).join('\n  ');
+  zip.folder('xl/drawings/_rels').file('drawing1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  ${drawRelTags}
+</Relationships>`);
+  charts.forEach((c,i)=>{ zip.file(`xl/charts/chart${i+1}.xml`, c); });
+  zip.file('docProps/core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Escalation Report</dc:title></cp:coreProperties>`);
+  zip.file('docProps/app.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Escalation Calculator</Application></Properties>`);
+  return zip.generateAsync({type:'blob'});
+}
+async function exportReportToExcel(results, form) {
+  const weeklyData = results.weeklyData||[];
+  const materialSeries = results.materialSeries||[];
+  const laborSeries = results.laborSeries||[];
+  const s = results.summary||{};
+
+  // ── Data sheet ──
+  const headers = ['Week','Week Of','Hours','Workers','Workers (Rounded Up)',
+    ...materialSeries.map(m=>m.name), ...laborSeries.map(l=>l.name),
+    'Cum. Material','Cum. Labor'];
+  const dataRows = weeklyData.map(row=>{
+    const cells = [
+      {v:row.week,type:'n'}, {v:row.weekLabel,type:'s'}, {v:row.hours||0,type:'n'},
+      {v:row.workers||0,type:'n'}, {v:Math.ceil(row.workers||0),type:'n'},
+    ];
+    materialSeries.forEach(m=>cells.push({v:row[m.key]||0,type:'n'}));
+    laborSeries.forEach(l=>cells.push({v:row[l.key]||0,type:'n'}));
+    cells.push({v:row.cumulativeMaterial||0,type:'n'});
+    cells.push({v:row.cumulativeLabor||0,type:'n'});
+    return cells;
+  });
+
+  // ── Summary sheet ──
+  const summaryRows = [
+    [{v:form.projectName||'Escalation Report',type:'s',bold:true}],
+    [{v:'Estimate #: '+(form.estimateNumber||'—')+'   Bid #: '+(form.bidNumber||'—'),type:'s'}],
+    [{v:'Schedule: '+(form.scheduleStart||'—')+' to '+(form.scheduleEnd||'—'),type:'s'}],
+    [],
+    [{v:'Category',type:'s',bold:true},{v:'Original Budget',type:'s',bold:true},{v:'Escalated Total',type:'s',bold:true},{v:'Difference',type:'s',bold:true},{v:'Esc. %',type:'s',bold:true}],
+    [{v:'Materials',type:'s'},{v:s.budgetedMaterial||0,type:'n'},{v:s.escalatedMaterial||0,type:'n'},{v:s.materialDifference||0,type:'n'},{v:s.materialEscPercent||0,type:'n'}],
+    [{v:'Labor',type:'s'},{v:s.budgetedLabor||0,type:'n'},{v:s.escalatedLabor||0,type:'n'},{v:s.laborDifference||0,type:'n'},{v:s.laborEscPercent||0,type:'n'}],
+    [{v:'TOTAL',type:'s',bold:true},{v:s.totalBudget||0,type:'n',bold:true},{v:s.totalEscalated||0,type:'n',bold:true},{v:s.totalDifference||0,type:'n',bold:true},{v:s.totalEscPercent||0,type:'n',bold:true}],
+    [],
+    [{v:'Phase',type:'s',bold:true},{v:'Original Budget',type:'s',bold:true},{v:'Escalated Total',type:'s',bold:true},{v:'Difference',type:'s',bold:true},{v:'Esc. %',type:'s',bold:true}],
+    ...(results.phaseBreakdown||[]).map(ph=>[
+      {v:ph.phaseName,type:'s'}, {v:ph.phaseTotal.budgeted,type:'n'}, {v:ph.phaseTotal.escalated,type:'n'},
+      {v:ph.phaseTotal.difference,type:'n'}, {v:ph.phaseTotal.escPercent,type:'n'}
+    ]),
+  ];
+
+  // ── Native charts ──
+  const catRowStart = 2, catRowEnd = weeklyData.length+1;
+  const weekLabels = weeklyData.map(r=>r.weekLabel);
+  let colIdx = 6; // first material column (F)
+  const matCols = materialSeries.map(m=>({name:m.name, colLetter:xlColLetter(colIdx++), key:m.key}));
+  const labCols = laborSeries.map(l=>({name:l.name, colLetter:xlColLetter(colIdx++), key:l.key}));
+
+  const charts = [];
+  if (matCols.length) {
+    charts.push(xlBuildBarChartXml({
+      title:'Material Cost Breakdown Per Type', sheetName:'Data', catColLetter:'B', catRowStart, catRowEnd, catLabels:weekLabels,
+      series: matCols.map(c=>({name:c.name, colLetter:c.colLetter, values:weeklyData.map(r=>r[c.key]||0)})),
+      stacked:true, valueFmt:'$#,##0'
+    }));
+  }
+  if (labCols.length) {
+    charts.push(xlBuildBarChartXml({
+      title:'Labor Cost Breakdown Per Type', sheetName:'Data', catColLetter:'B', catRowStart, catRowEnd, catLabels:weekLabels,
+      series: labCols.map(c=>({name:c.name, colLetter:c.colLetter, values:weeklyData.map(r=>r[c.key]||0)})),
+      stacked:true, valueFmt:'$#,##0'
+    }));
+  }
+  charts.push(xlBuildBarChartXml({
+    title:'Worker Hours per Week', sheetName:'Data', catColLetter:'B', catRowStart, catRowEnd, catLabels:weekLabels,
+    series:[{name:'Hours', colLetter:'C', values:weeklyData.map(r=>r.hours||0)}],
+    stacked:false, valueFmt:'General'
+  }));
+  charts.push(xlBuildBarChartXml({
+    title:'Workers per Week', sheetName:'Data', catColLetter:'B', catRowStart, catRowEnd, catLabels:weekLabels,
+    series:[{name:'Workers (Rounded Up)', colLetter:'E', values:weeklyData.map(r=>Math.ceil(r.workers||0))}],
+    stacked:false, valueFmt:'0'
+  }));
+
+  const sheets = [
+    { name:'Summary', xml: xlBuildFreeformSheet(summaryRows) },
+    { name:'Data', xml: xlBuildDataSheet(headers, dataRows) },
+    { name:'Charts', xml: xlBuildChartsSheet() },
+  ];
+
+  const blob = await xlBuildWorkbook({ sheets, charts });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (form.projectName||form.estimateNumber||'Escalation-Report').replace(/[^a-z0-9\-_ ]/gi,'').trim()+'.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
 function printReport(results, form) {
   const s = results.summary;
   const activeWorkerWeeksRpt=(results.weeklyData||[]).filter(w=>(w.workers||0)>0).map(w=>w.workers);
@@ -1047,18 +1343,37 @@ function printReport(results, form) {
   const fmtNum = (v,d=1) => (v||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
   const phaseNames = results.phaseNames || [];
 
-  function getChartSVGs() {
+  function styleSvgForPrint(svg) {
+    // Darken the faint on-screen colors so gridlines/ticks are legible on a printed page
+    svg.querySelectorAll('.recharts-cartesian-grid line').forEach(el => {
+      el.setAttribute('stroke', '#cbd5e1');
+      el.setAttribute('stroke-opacity', '1');
+    });
+    svg.querySelectorAll('.recharts-cartesian-axis-tick-line').forEach(el => {
+      el.setAttribute('stroke', '#94a3b8');
+    });
+    svg.querySelectorAll('.recharts-cartesian-axis-line').forEach(el => {
+      el.setAttribute('stroke', '#94a3b8');
+    });
+    svg.querySelectorAll('.recharts-cartesian-axis-tick text, .recharts-text.recharts-cartesian-axis-tick-value').forEach(el => {
+      el.setAttribute('fill', '#334155');
+    });
+    return svg;
+  }
+  function getChartAssets() {
     const out = [];
-    document.querySelectorAll('.recharts-wrapper').forEach(w => {
-      const svg = w.querySelector('svg');
-      if (!svg) return;
-      const c = svg.cloneNode(true);
-      c.setAttribute('xmlns','http://www.w3.org/2000/svg');
-      out.push(c.outerHTML);
+    document.querySelectorAll('.report-chart-card').forEach(card => {
+      const svgEl = card.querySelector('svg');
+      if (!svgEl) return;
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+      styleSvgForPrint(clone);
+      const legendEl = card.querySelector('.report-chart-legend');
+      out.push({ svg: clone.outerHTML, legend: legendEl ? legendEl.outerHTML : '' });
     });
     return out;
   }
-  const svgs = getChartSVGs();
+  const chartAssets = getChartAssets();
   const chartLabels = ['Phase Cost Distribution','Material Cost Breakdown Per Type','Labor Cost Breakdown Per Type','Worker Hours per Week','Workers per Week'];
 
   function diff(v) {
@@ -1119,10 +1434,11 @@ function printReport(results, form) {
   }
 
   function chartsSection() {
-    return svgs.map((svg,i)=>`
+    return chartAssets.map((c,i)=>`
       <div class="chart-box">
         <div class="chart-lbl">${chartLabels[i]||''}</div>
-        <div class="chart-svg">${svg}</div>
+        ${c.legend?`<div class="chart-legend-wrap">${c.legend}</div>`:''}
+        <div class="chart-svg">${c.svg}</div>
       </div>`).join('');
   }
 
@@ -1198,6 +1514,8 @@ td:not(:first-child){text-align:right}
 .chart-stack{display:flex;flex-direction:column;gap:12px}
 .chart-box{border:1px solid #e2e8f0;border-radius:7px;padding:12px 14px;background:#fff;page-break-inside:avoid;break-inside:avoid}
 .chart-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#475569;margin-bottom:8px}
+.chart-legend-wrap{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+.chart-legend-wrap > div{display:flex!important;align-items:center;gap:4px;font-size:8px!important}
 .chart-svg svg{width:100%!important;height:auto!important;min-height:200px}
 
 /* WEEKLY TABLE — landscape */
@@ -1305,6 +1623,7 @@ function Results({results,formData,onClear,onSave}){
       React.createElement('button',{onClick:onClear,style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:500,color:'#6b7280',border:'1px solid #d1d5db',borderRadius:8,padding:'6px 14px',background:'#fff',cursor:'pointer'}},'↺ Recalculate'),
       React.createElement('div',{style:{display:'flex',gap:8}},
         onSave&&React.createElement('button',{onClick:onSave,style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:'#fff',background:'#16a34a',border:'none',borderRadius:8,padding:'6px 18px',cursor:'pointer'}},'💾 Save Project'),
+        React.createElement('button',{onClick:()=>exportReportToExcel(results,formData),style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:'#fff',background:'#0f766e',border:'none',borderRadius:8,padding:'6px 18px',cursor:'pointer'}},'📊 Export to Excel'),
         React.createElement('button',{onClick:()=>printReport(results,formData),style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:'#fff',background:'#1e3a5f',border:'none',borderRadius:8,padding:'6px 18px',cursor:'pointer'}},'🖨 Save Report / PDF')
       )
     ),
@@ -1331,7 +1650,7 @@ function Results({results,formData,onClear,onSave}){
     React.createElement(PhaseOverlapChart,{phaseOverlapData:phaseOverlapData,phaseNames:phaseNames}),
     React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.materialSeries||[],title:'Material Cost Breakdown Per Type',subtitle:'Weekly escalated material cost, stacked by material type',palette:['#0d9488','#0f766e','#14b8a6','#115e59','#2dd4bf','#134e4a','#5eead4','#0891b2']}),
     React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.laborSeries||[],title:'Labor Cost Breakdown Per Type',subtitle:'Weekly escalated labor cost, stacked by labor type',palette:['#ea580c','#c2410c','#f97316','#9a3412','#fb923c','#7c2d12','#fdba74','#dc2626']}),
-    React.createElement('div',{style:CARD},
+    React.createElement('div',{className:'report-chart-card',style:CARD},
       React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Worker Hours per Week'),
       React.createElement(ResponsiveContainer,{width:'100%',height:300},React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44}),React.createElement(Tooltip,{content:React.createElement(HrsTip,null)}),React.createElement(Bar,{dataKey:'hours',name:'Hours',fill:'#9333ea',radius:[3,3,0,0]}),React.createElement(ReferenceLine,{y:avgHoursPerWeek,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgHoursPerWeek,1),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}})))
     ),
