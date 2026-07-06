@@ -493,7 +493,7 @@ const ADMIN_PASSWORD = 'admin123'; // change this to your preferred password
 
 const DEFAULT_CURVES = [
   // KI_CURVE listed first by default
-  {id:'adaptive-curve-001',name:'Adaptive (40-hr blocks)',type:'adaptive',weeks:[0.0001, 0.00015, 0.00015, 0.0001, 0.0004, 0.0006001, 0.0006001, 0.0010001, 0.0010001, 0.0010001, 0.0040004, 0.0064006, 0.0080008, 0.0120012, 0.0155016, 0.0190019, 0.0240024, 0.0250025, 0.0290029, 0.0340034, 0.0420042, 0.0440044, 0.0480048, 0.0520052, 0.0550055, 0.0560056, 0.0570057, 0.0560056, 0.0540054, 0.0480048, 0.0470047, 0.0460046, 0.040004, 0.0290029, 0.0290029, 0.0290029, 0.0210021, 0.0166017, 0.0131013, 0.010201, 0.0070007, 0.0050005, 0.0040004, 0.0030003, 0.0023002, 0.0010001, 0.0010001, 0.0006001, 0.0004, 0.0001, 0.0001, 0.0005001],is_active:true,sort_order:1,description:'Auto-generates a bell-curve distribution rounded to 40-hour blocks (8 hrs/day, 5 days/week). Minimum 40 hrs/week — one full-time person on site every active week. Adapts to actual phase hours and duration.'},
+  {id:'adaptive-curve-001',name:'Adaptive (auto weekly block)',type:'adaptive',weeks:[0.0001, 0.00015, 0.00015, 0.0001, 0.0004, 0.0006001, 0.0006001, 0.0010001, 0.0010001, 0.0010001, 0.0040004, 0.0064006, 0.0080008, 0.0120012, 0.0155016, 0.0190019, 0.0240024, 0.0250025, 0.0290029, 0.0340034, 0.0420042, 0.0440044, 0.0480048, 0.0520052, 0.0550055, 0.0560056, 0.0570057, 0.0560056, 0.0540054, 0.0480048, 0.0470047, 0.0460046, 0.040004, 0.0290029, 0.0290029, 0.0290029, 0.0210021, 0.0166017, 0.0131013, 0.010201, 0.0070007, 0.0050005, 0.0040004, 0.0030003, 0.0023002, 0.0010001, 0.0010001, 0.0006001, 0.0004, 0.0001, 0.0001, 0.0005001],is_active:true,sort_order:1,description:'Auto-generates a bell-curve distribution rounded to whole weekly staffing blocks (8 hrs/day x the working days selected under Overall Schedule — 40 hrs for a 5-day week, 48 with Saturday, 56 with Sunday). Minimum one full block per active week. Adapts to actual phase hours and duration.'},
   {id:'6a2ac162b6244b3047f2ed79',name:'KI_CURVE',weeks:[0.0001,0.00015,0.00015,0.0001,0.0004,0.0006,0.0006,0.001,0.001,0.001,0.004,0.0064,0.008,0.012,0.0155,0.019,0.024,0.025,0.029,0.034,0.042,0.044,0.048,0.052,0.055,0.056,0.057,0.056,0.054,0.048,0.047,0.046,0.04,0.029,0.029,0.029,0.021,0.0166,0.0131,0.0102,0.007,0.005,0.004,0.003,0.0023,0.001,0.001,0.0006,0.0004,0.0001,0.0001,0.0005],is_active:true,created_at:'2026-06-11T14:08:34.259Z'},
 
   {id:'6a2ac161b6244b3047f2ed75',name:'Flat',weeks:[0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769,0.019230769],is_active:true,created_at:'2026-06-11T14:08:33.013Z'},
@@ -565,7 +565,7 @@ function interpWeight(wi, totalWeeks, curve) {
   return curve[lo]*(1-(pos-lo))+curve[hi]*(pos-lo);
 }
 
-function generateAdaptiveWeights(totalWeeks, estimatedHours) {
+function generateAdaptiveWeights(totalWeeks, estimatedHours, blockHours) {
   // KI_CURVE template — the shape we want to replicate
   const KI = [0.0001,0.00015,0.00015,0.0001,0.0004,0.0006,0.0006,0.001,0.001,0.001,
                0.004,0.0064,0.008,0.012,0.0155,0.019,0.024,0.025,0.029,0.034,
@@ -573,8 +573,11 @@ function generateAdaptiveWeights(totalWeeks, estimatedHours) {
                0.047,0.046,0.04,0.029,0.029,0.029,0.021,0.0166,0.0131,0.0102,
                0.007,0.005,0.004,0.003,0.0023,0.001,0.001,0.0006,0.0004,0.0001,
                0.0001,0.0005];
-  const minHours = 40; // 8 hrs/day x 5 days = one full-time person minimum
-  const targetHours = Math.round(estimatedHours / 40) * 40 || 40;
+  // Weekly block size = 8 hrs/day x number of working days selected in Overall Schedule
+  // (Mon-Fri = 40, +Sat = 48, +Sun = 56). One "block" = one full-time person for the week.
+  const block = blockHours || 40;
+  const minHours = block;
+  const targetHours = Math.round(estimatedHours / block) * block || block;
 
   // Interpolate KI_CURVE shape to fit exactly totalWeeks
   function interpKI(wi, total) {
@@ -589,29 +592,56 @@ function generateAdaptiveWeights(totalWeeks, estimatedHours) {
   const rawWeights = Array.from({length: totalWeeks}, (_, wi) => interpKI(wi, totalWeeks));
   const rawSum = rawWeights.reduce((s, w) => s + w, 0) || 1;
 
-  // Scale to hours, round DOWN to nearest 40, enforce minimum 40
-  let hours = rawWeights.map(w => Math.max(minHours, Math.floor((w / rawSum) * targetHours / 40) * 40));
+  // Scale to hours, round DOWN to nearest block, enforce minimum one block
+  let hours = rawWeights.map(w => Math.max(minHours, Math.floor((w / rawSum) * targetHours / block) * block));
 
-  // Distribute remaining hours (in 40-hr blocks) to highest-weight weeks first
+  // Distribute remaining hours (in block-size chunks) to highest-weight weeks first
   let diff = targetHours - hours.reduce((s, h) => s + h, 0);
   const byWeight = rawWeights.map((w, i) => ({i, w})).sort((a, b) => b.w - a.w);
   let ri = 0;
-  while (Math.abs(diff) >= 40 && ri < totalWeeks * 200) {
+  while (Math.abs(diff) >= block && ri < totalWeeks * 200) {
     const idx = byWeight[ri % totalWeeks].i;
-    if (diff > 0) { hours[idx] += 40; diff -= 40; }
-    else if (diff < 0 && hours[idx] > minHours) { hours[idx] -= 40; diff += 40; }
+    if (diff > 0) { hours[idx] += block; diff -= block; }
+    else if (diff < 0 && hours[idx] > minHours) { hours[idx] -= block; diff += block; }
     ri++;
   }
 
   const total = hours.reduce((s, h) => s + h, 0) || 1;
   return hours.map(h => h / total);
 }
-function getEscalationFactor(anniversaryDate, escalationPct, weekDate) {
-  const anniv=new Date(anniversaryDate), week=new Date(weekDate);
-  anniv.setHours(0,0,0,0); week.setHours(0,0,0,0);
-  let count=0, check=new Date(anniv);
-  while(check<=week){count++;check.setFullYear(check.getFullYear()+1);}
-  return Math.pow(1+escalationPct/100,count);
+let _escIdCounter=0;
+function genEscId(){return 'esc_'+(++_escIdCounter)+'_'+Math.random().toString(36).slice(2,7);}
+function newEscalationDate(){return {id:genEscId(),date:'',recurring:true};}
+// Normalizes an item's escalation dates: migrates legacy single anniversaryDate string
+// into the escalationDates array, and guarantees at least one row exists.
+function normalizeEscalationDates(item){
+  if(Array.isArray(item.escalationDates)&&item.escalationDates.length){
+    return item.escalationDates.map(d=>({id:d.id||genEscId(),date:d.date||'',recurring:d.recurring!==false}));
+  }
+  if(item.anniversaryDate){
+    return [{id:genEscId(),date:item.anniversaryDate,recurring:true}];
+  }
+  return [newEscalationDate()];
+}
+function getEscalationFactor(escalationDates, escalationPct, weekDate) {
+  const week=new Date(weekDate); week.setHours(0,0,0,0);
+  const dates=Array.isArray(escalationDates)?escalationDates:(escalationDates?[{date:escalationDates,recurring:true}]:[]);
+  let factor=1;
+  for(const ed of dates){
+    if(!ed||!ed.date) continue;
+    const anniv=new Date(ed.date); anniv.setHours(0,0,0,0);
+    if(anniv>week) continue;
+    if(ed.recurring===false){
+      // One-time bump: applies once, from its date forward
+      factor*=(1+escalationPct/100);
+    } else {
+      // Recurring: compounds once per year that has elapsed by the current week
+      let count=0, check=new Date(anniv);
+      while(check<=week){count++;check.setFullYear(check.getFullYear()+1);}
+      factor*=Math.pow(1+escalationPct/100,count);
+    }
+  }
+  return factor;
 }
 function fmtWeekLabel(date){
   return String(date.getMonth()+1).padStart(2,'0')+'/'+String(date.getDate()).padStart(2,'0')+'/'+String(date.getFullYear()).slice(-2);
@@ -626,6 +656,7 @@ function calculate(form, curves) {
   const allWeeks=getWeeksBetween(spanStart, spanEnd);
   if(!allWeeks.length) throw new Error('Invalid schedule dates');
   const weeklyMap=allWeeks.map((weekDate,idx)=>({week:idx+1,weekLabel:fmtWeekLabel(weekDate),weekDate,materialCost:0,laborCost:0,hours:0}));
+  const blockHours=getBlockHours(form.workDays);
   const phaseBreakdown=[],phaseWeeklyTotals=[],materialWeeklyTotals=[],laborWeeklyTotals=[];
   let totalBudgetedMaterial=0,totalEscalatedMaterial=0,totalBudgetedLabor=0,totalEscalatedLabor=0;
   for(const phase of form.phases){
@@ -636,8 +667,8 @@ function calculate(form, curves) {
     const totalPW=phaseWeeks.length, estimatedHours=parseFloat(phase.estimatedHours)||1;
     let normWeights, hoursPerWeek;
     if(curve.type==='adaptive'){
-      normWeights=generateAdaptiveWeights(totalPW, estimatedHours);
-      hoursPerWeek=normWeights.map(w=>Math.round(w*estimatedHours/40)*40||40);
+      normWeights=generateAdaptiveWeights(totalPW, estimatedHours, blockHours);
+      hoursPerWeek=normWeights.map(w=>Math.round(w*estimatedHours/blockHours)*blockHours||blockHours);
     } else {
       const rawWeights=phaseWeeks.map((_,wi)=>interpWeight(wi,totalPW,curve.weeks));
       const rawSum=rawWeights.reduce((s,w)=>s+w,0)||1;
@@ -654,7 +685,7 @@ function calculate(form, curves) {
       let totalEscalated=0;
       const matWeekly=new Array(allWeeks.length).fill(0);
       phaseWeeks.forEach((weekDate,wi)=>{
-        const factor=getEscalationFactor(mat.anniversaryDate,escalationPct,weekDate);
+        const factor=getEscalationFactor(mat.escalationDates,escalationPct,weekDate);
         const weekCost=budget*normWeights[wi]*factor;
         const gi=weeklyMap.findIndex(w=>w.weekDate.toDateString()===weekDate.toDateString());
         if(gi>=0){weeklyMap[gi].materialCost+=weekCost;phaseWeeklyCost[gi]+=weekCost;phaseWeeklyMat[gi]+=weekCost;matWeekly[gi]+=weekCost;}
@@ -671,7 +702,7 @@ function calculate(form, curves) {
       let totalEscalated=0;
       const labWeekly=new Array(allWeeks.length).fill(0);
       phaseWeeks.forEach((weekDate,wi)=>{
-        const factor=getEscalationFactor(lab.anniversaryDate,escalationPct,weekDate);
+        const factor=getEscalationFactor(lab.escalationDates,escalationPct,weekDate);
         const weekCost=budget*normWeights[wi]*factor;
         const gi=weeklyMap.findIndex(w=>w.weekDate.toDateString()===weekDate.toDateString());
         if(gi>=0){weeklyMap[gi].laborCost+=weekCost;phaseWeeklyCost[gi]+=weekCost;phaseWeeklyLab[gi]+=weekCost;labWeekly[gi]+=weekCost;}
@@ -710,7 +741,7 @@ function calculate(form, curves) {
     materialWeeklyTotals.forEach(m=>{materialBreakdownWeek[m.key]=m.weekly[gi]||0;});
     const laborBreakdownWeek={};
     laborWeeklyTotals.forEach(l=>{laborBreakdownWeek[l.key]=l.weekly[gi]||0;});
-    return{...w,cumulativeMaterial:cumMat,cumulativeLabor:cumLab,...phaseBreakdownWeek,...materialBreakdownWeek,...laborBreakdownWeek};
+    return{...w,workers:(w.hours||0)/blockHours,cumulativeMaterial:cumMat,cumulativeLabor:cumLab,...phaseBreakdownWeek,...materialBreakdownWeek,...laborBreakdownWeek};
   });
   const phaseOverlapData=allWeeks.map((_,gi)=>{
     const row={weekLabel:weeklyData[gi].weekLabel};
@@ -718,7 +749,7 @@ function calculate(form, curves) {
     return row;
   });
   const totBud=totalBudgetedMaterial+totalBudgetedLabor,totEsc=totalEscalatedMaterial+totalEscalatedLabor;
-  return{summary:{totalBudget:totBud,totalEscalated:totEsc,totalDifference:totEsc-totBud,totalEscPercent:totBud>0?(totEsc-totBud)/totBud:0,budgetedMaterial:totalBudgetedMaterial,escalatedMaterial:totalEscalatedMaterial,materialDifference:totalEscalatedMaterial-totalBudgetedMaterial,materialEscPercent:totalBudgetedMaterial>0?(totalEscalatedMaterial-totalBudgetedMaterial)/totalBudgetedMaterial:0,budgetedLabor:totalBudgetedLabor,escalatedLabor:totalEscalatedLabor,laborDifference:totalEscalatedLabor-totalBudgetedLabor,laborEscPercent:totalBudgetedLabor>0?(totalEscalatedLabor-totalBudgetedLabor)/totalBudgetedLabor:0},weeklyData,phaseBreakdown,phaseOverlapData,phaseNames:phaseWeeklyTotals.map(p=>p.phaseName),materialSeries,laborSeries};
+  return{summary:{totalBudget:totBud,totalEscalated:totEsc,totalDifference:totEsc-totBud,totalEscPercent:totBud>0?(totEsc-totBud)/totBud:0,budgetedMaterial:totalBudgetedMaterial,escalatedMaterial:totalEscalatedMaterial,materialDifference:totalEscalatedMaterial-totalBudgetedMaterial,materialEscPercent:totalBudgetedMaterial>0?(totalEscalatedMaterial-totalBudgetedMaterial)/totalBudgetedMaterial:0,budgetedLabor:totalBudgetedLabor,escalatedLabor:totalEscalatedLabor,laborDifference:totalEscalatedLabor-totalBudgetedLabor,laborEscPercent:totalBudgetedLabor>0?(totalEscalatedLabor-totalBudgetedLabor)/totalBudgetedLabor:0},weeklyData,phaseBreakdown,phaseOverlapData,phaseNames:phaseWeeklyTotals.map(p=>p.phaseName),materialSeries,laborSeries,blockHours};
 }
 const fmt$=v=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(v||0);
 const fmtPct=v=>`${((v||0)*100).toFixed(2)}%`;
@@ -766,10 +797,54 @@ const TD=({children,right,bold,color})=>React.createElement('td',{style:{textAli
 function SectionCard({title,accent,children}){return React.createElement('div',{style:{borderRadius:12,borderLeft:`4px solid ${accent}`,background:'rgba(255,255,255,0.05)',padding:20,marginBottom:16}},React.createElement('h2',{style:{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'rgba(255,255,255,0.7)',marginBottom:16}},title),children);}
 
 /* ── Default form ── */
-const newMat=()=>({name:'',budget:'',escalationPercent:'',anniversaryDate:''});
-const newLab=()=>({name:'',budget:'',escalationPercent:'',anniversaryDate:''});
+const DAY_KEYS=['mon','tue','wed','thu','fri','sat','sun'];
+const DAY_LABELS={mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun'};
+const defaultWorkDays=()=>({mon:true,tue:true,wed:true,thu:true,fri:true,sat:false,sun:false});
+// Ensures a workDays object exists and has sane defaults (used to migrate older saved projects)
+function normalizeWorkDays(workDays){
+  const wd=workDays||{};
+  const out={};
+  DAY_KEYS.forEach(k=>{out[k]=wd[k]!==undefined?!!wd[k]:(k!=='sat'&&k!=='sun');});
+  return out;
+}
+// Minimum weekly hours block = 8 hrs/day x number of working days selected.
+// Falls back to a standard 5-day week if somehow nothing is checked.
+function getBlockHours(workDays){
+  const wd=normalizeWorkDays(workDays);
+  const count=DAY_KEYS.reduce((s,k)=>s+(wd[k]?1:0),0);
+  return 8*(count||5);
+}
+const newMat=()=>({name:'',budget:'',escalationPercent:'',escalationDates:[newEscalationDate()]});
+const newLab=()=>({name:'',budget:'',escalationPercent:'',escalationDates:[newEscalationDate()]});
 const newPhase=()=>({name:'',startDate:'',endDate:'',estimatedHours:'',curveId:'',materials:[newMat()],labors:[newLab()]});
-const defaultForm=()=>{const t=new Date().toISOString().slice(0,10);return {projectName:'',estimateNumber:'',bidNumber:'',date:t,bidDate:'',scheduleStart:'',scheduleEnd:'',phases:[newPhase()]};}
+const defaultForm=()=>{const t=new Date().toISOString().slice(0,10);return {projectName:'',estimateNumber:'',bidNumber:'',date:t,bidDate:'',scheduleStart:'',scheduleEnd:'',workDays:defaultWorkDays(),phases:[newPhase()]};}
+
+/* ── Escalation dates sub-editor (shared by Materials & Labor) ── */
+function EscalationDatesEditor({dates,onChange,bidDate,accent}){
+  const list=(dates&&dates.length)?dates:[newEscalationDate()];
+  function updDate(i,f,v){const d=[...list];d[i]={...d[i],[f]:v};onChange(d);}
+  function addDate(){if(list.length<5)onChange([...list,newEscalationDate()]);}
+  function remDate(i){onChange(list.filter((_,j)=>j!==i));}
+  return React.createElement('div',{style:{marginTop:8}},
+    React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}},
+      React.createElement(Label,{required:true},'Escalation Date(s)'),
+      list.length<5&&React.createElement('button',{type:'button',onClick:addDate,style:{background:'none',border:'none',cursor:'pointer',fontSize:10,color:accent||'#c4b5fd',fontWeight:600}},'+ Add date')
+    ),
+    list.map((d,i)=>React.createElement('div',{key:d.id||i,style:{marginBottom:6}},
+      React.createElement('div',{style:{display:'flex',gap:6,alignItems:'center'}},
+        React.createElement('div',{style:{flex:1}},
+          React.createElement(SInput,{type:'date',value:d.date,onChange:e=>updDate(i,'date',e.target.value),error:d.date&&bidDate&&d.date<=bidDate})
+        ),
+        React.createElement('label',{style:{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'#94a3b8',whiteSpace:'nowrap',cursor:'pointer'}},
+          React.createElement('input',{type:'checkbox',checked:d.recurring!==false,onChange:e=>updDate(i,'recurring',e.target.checked),style:{cursor:'pointer'}}),
+          'Recurring yearly'
+        ),
+        list.length>1&&React.createElement('button',{type:'button',onClick:()=>remDate(i),style:{background:'none',border:'none',cursor:'pointer',fontSize:10,color:'#f87171',fontWeight:500}},'✕')
+      ),
+      d.date&&bidDate&&d.date<=bidDate&&React.createElement('p',{style:{color:'#f87171',fontSize:10,marginTop:3}},'⚠ Must be after bid date')
+    ))
+  );
+}
 
 /* ── Materials sub-form ── */
 function MaterialsForm({phase,phaseIdx,onChange,bidDate}){
@@ -787,15 +862,11 @@ function MaterialsForm({phase,phaseIdx,onChange,bidDate}){
         i>0&&React.createElement('button',{type:'button',onClick:()=>rem(i),style:{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#f87171',fontWeight:500}},'Remove')
       ),
       React.createElement('div',{style:{marginBottom:8}},React.createElement(Label,{required:true},'Name'),React.createElement(SInput,{value:m.name,onChange:e=>upd(i,'name',e.target.value),placeholder:'e.g. Insulation'})),
-      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}},
+      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
         React.createElement('div',null,React.createElement(Label,{required:true},'Budget'),React.createElement(AccountingInput,{value:m.budget,onChange:e=>upd(i,'budget',e.target.value)})),
-        React.createElement('div',null,React.createElement(Label,{required:true},'Esc. %'),React.createElement(SInput,{type:'number',min:'0',step:'0.01',value:m.escalationPercent,onChange:e=>upd(i,'escalationPercent',e.target.value),placeholder:'0.00'})),
-        React.createElement('div',null,
-              React.createElement(Label,{required:true},'Anniv. Date'),
-              React.createElement(SInput,{type:'date',value:m.anniversaryDate,onChange:e=>upd(i,'anniversaryDate',e.target.value),error:m.anniversaryDate&&bidDate&&m.anniversaryDate<=bidDate}),
-              m.anniversaryDate&&bidDate&&m.anniversaryDate<=bidDate&&React.createElement('p',{style:{color:'#f87171',fontSize:10,marginTop:3}},'⚠ Must be after bid date')
-            )
-      )
+        React.createElement('div',null,React.createElement(Label,{required:true},'Esc. %'),React.createElement(SInput,{type:'number',min:'0',step:'0.01',value:m.escalationPercent,onChange:e=>upd(i,'escalationPercent',e.target.value),placeholder:'0.00'}))
+      ),
+      React.createElement(EscalationDatesEditor,{dates:m.escalationDates,onChange:d=>upd(i,'escalationDates',d),bidDate:bidDate,accent:'#c4b5fd'})
     ))
   );
 }
@@ -816,15 +887,11 @@ function LaborForm({phase,phaseIdx,onChange,bidDate}){
         i>0&&React.createElement('button',{type:'button',onClick:()=>rem(i),style:{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#f87171',fontWeight:500}},'Remove')
       ),
       React.createElement('div',{style:{marginBottom:8}},React.createElement(Label,{required:true},'Name'),React.createElement(SInput,{value:l.name,onChange:e=>upd(i,'name',e.target.value),placeholder:'e.g. Insulator'})),
-      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}},
+      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
         React.createElement('div',null,React.createElement(Label,{required:true},'Budget'),React.createElement(AccountingInput,{value:l.budget,onChange:e=>upd(i,'budget',e.target.value)})),
-        React.createElement('div',null,React.createElement(Label,{required:true},'Esc. %'),React.createElement(SInput,{type:'number',min:'0',step:'0.01',value:l.escalationPercent,onChange:e=>upd(i,'escalationPercent',e.target.value),placeholder:'0.00'})),
-        React.createElement('div',null,
-              React.createElement(Label,{required:true},'Anniv. Date'),
-              React.createElement(SInput,{type:'date',value:l.anniversaryDate,onChange:e=>upd(i,'anniversaryDate',e.target.value),error:l.anniversaryDate&&bidDate&&l.anniversaryDate<=bidDate}),
-              l.anniversaryDate&&bidDate&&l.anniversaryDate<=bidDate&&React.createElement('p',{style:{color:'#f87171',fontSize:10,marginTop:3}},'⚠ Must be after bid date')
-            )
-      )
+        React.createElement('div',null,React.createElement(Label,{required:true},'Esc. %'),React.createElement(SInput,{type:'number',min:'0',step:'0.01',value:l.escalationPercent,onChange:e=>upd(i,'escalationPercent',e.target.value),placeholder:'0.00'}))
+      ),
+      React.createElement(EscalationDatesEditor,{dates:l.escalationDates,onChange:d=>upd(i,'escalationDates',d),bidDate:bidDate,accent:'#fca5a5'})
     ))
   );
 }
@@ -901,9 +968,9 @@ function PhaseOverlapChart({phaseOverlapData,phaseNames}){
 }
 
 
-function CostBreakdownChart({weeklyData,series,title,subtitle}){
-  const COLORS=['#2563eb','#f97316','#16a34a','#9333ea','#e11d48','#0891b2','#d97706','#0f766e','#7c3aed','#65a30d','#dc2626','#0284c7'];
-  const tick={fontSize:9,fill:'#9ca3af',angle:-90,textAnchor:'end',dy:2};
+function CostBreakdownChart({weeklyData,series,title,subtitle,palette}){
+  const COLORS=palette||['#2563eb','#1d4ed8','#3b82f6','#1e40af','#60a5fa','#1e3a8a','#0ea5e9','#0369a1'];
+  const tick=makeTick(weeklyData.length);
   const MTip=({active,payload,label})=>{
     if(!active||!payload?.length)return null;
     const total=payload.reduce((s,p)=>s+(p.value||0),0);
@@ -914,6 +981,9 @@ function CostBreakdownChart({weeklyData,series,title,subtitle}){
     );
   };
   if(!series||!series.length)return null;
+  const weekTotals=weeklyData.map(w=>series.reduce((s,m)=>s+(w[m.key]||0),0));
+  const activeTotals=weekTotals.filter(t=>t>0);
+  const avgTotal=activeTotals.length?activeTotals.reduce((s,t)=>s+t,0)/activeTotals.length:0;
   return React.createElement('div',{style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
     React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},title),
     React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},subtitle),
@@ -924,12 +994,42 @@ function CostBreakdownChart({weeklyData,series,title,subtitle}){
       ))
     ),
     React.createElement(ResponsiveContainer,{width:'100%',height:300},
-      React.createElement(AreaChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},
+      React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},
         React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),
         React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),
         React.createElement(YAxis,{tickFormatter:fmtShort$,tick:{fontSize:11,fill:'#9ca3af'},width:60}),
-        React.createElement(Tooltip,{content:React.createElement(MTip,null)}),
-        ...series.map((m,i)=>React.createElement(Area,{key:m.key,type:'monotone',dataKey:m.key,name:m.name,stackId:'1',stroke:COLORS[i%COLORS.length],fill:COLORS[i%COLORS.length],fillOpacity:0.75,strokeWidth:1,isAnimationActive:false}))
+        React.createElement(Tooltip,{content:React.createElement(MTip,null),cursor:{fill:'rgba(0,0,0,0.04)'}}),
+        ...series.map((m,i)=>React.createElement(Bar,{key:m.key,dataKey:m.key,name:m.name,stackId:'1',fill:COLORS[i%COLORS.length],radius:i===series.length-1?[3,3,0,0]:[0,0,0,0],isAnimationActive:false})),
+        React.createElement(ReferenceLine,{y:avgTotal,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtShort$(avgTotal),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}})
+      )
+    )
+  );
+}
+
+function WorkersPerWeekChart({weeklyData,blockHours}){
+  const tick={fontSize:9,fill:'#9ca3af',angle:-90,textAnchor:'end',dy:2};
+  const activeWeeks=weeklyData.filter(w=>(w.workers||0)>0);
+  const avgWorkers=activeWeeks.length?activeWeeks.reduce((s,w)=>s+w.workers,0)/activeWeeks.length:0;
+  const bh=blockHours||40;
+  const WTip=({active,payload,label})=>{
+    if(!active||!payload?.length)return null;
+    return React.createElement('div',{style:{background:'#fff',border:'1px solid #e5e7eb',borderRadius:8,padding:'8px 12px',fontSize:11,boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}},
+      React.createElement('p',{style:{fontWeight:600,color:'#374151',marginBottom:4}},label),
+      payload.map((p,i)=>React.createElement('p',{key:i,style:{color:p.color}},`${p.name}: ${fmtNum(p.value,1)}`)),
+      React.createElement('p',{style:{color:'#f97316',marginTop:2}},`Avg: ${fmtNum(avgWorkers,1)}`)
+    );
+  };
+  return React.createElement('div',{style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
+    React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},'Workers per Week'),
+    React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},`Crew size per week (${bh} hrs = 1 worker) \u2014 dashed line shows the average across active weeks`),
+    React.createElement(ResponsiveContainer,{width:'100%',height:300},
+      React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},
+        React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),
+        React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),
+        React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44,allowDecimals:false}),
+        React.createElement(Tooltip,{content:React.createElement(WTip,null)}),
+        React.createElement(ReferenceLine,{y:avgWorkers,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgWorkers,1),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}}),
+        React.createElement(Bar,{dataKey:'workers',name:'Workers',fill:'#0891b2',radius:[3,3,0,0]})
       )
     )
   );
@@ -937,6 +1037,9 @@ function CostBreakdownChart({weeklyData,series,title,subtitle}){
 
 function printReport(results, form) {
   const s = results.summary;
+  const activeWorkerWeeksRpt=(results.weeklyData||[]).filter(w=>(w.workers||0)>0).map(w=>w.workers);
+  const minWorkersPerDayRpt=activeWorkerWeeksRpt.length?Math.min(...activeWorkerWeeksRpt):0;
+  const maxWorkersPerDayRpt=activeWorkerWeeksRpt.length?Math.max(...activeWorkerWeeksRpt):0;
   const fmt$ = v => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(v||0);
   const fmtPct = v => ((v||0)*100).toFixed(2)+'%';
   const fmtNum = (v,d=1) => (v||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -954,7 +1057,7 @@ function printReport(results, form) {
     return out;
   }
   const svgs = getChartSVGs();
-  const chartLabels = ['Phase Cost Distribution','Material Cost Breakdown Per Type','Labor Cost Breakdown Per Type','Worker Hours per Week'];
+  const chartLabels = ['Phase Cost Distribution','Material Cost Breakdown Per Type','Labor Cost Breakdown Per Type','Worker Hours per Week','Workers per Week'];
 
   function diff(v) {
     const cls = v>0?'pos':v<0?'neg':'';
@@ -1137,12 +1240,14 @@ tr{page-break-inside:avoid;break-inside:avoid}
   <div class="ic"><div class="lbl">Phase Names</div><div class="val">${phaseSummary||'—'}</div></div>
 </div>
 
-<div class="sec">Cost Summary</div>
+<div class="sec">Summary</div>
 <div class="sum-grid">
   <div class="sc"><div class="lbl">Original Budget</div><div class="val">${fmt$(s.totalBudget)}</div></div>
   <div class="sc"><div class="lbl">Escalated Total</div><div class="val">${fmt$(s.totalEscalated)}</div></div>
   <div class="sc"><div class="lbl">$ Difference</div><div class="val ${s.totalDifference>0?'pos':'neg'}">${s.totalDifference>0?'+':''}${fmt$(s.totalDifference)}</div></div>
   <div class="sc"><div class="lbl">% Escalation</div><div class="val">${fmtPct(s.totalEscPercent)}</div></div>
+  <div class="sc"><div class="lbl">Min Workers / Day</div><div class="val">${fmtNum(minWorkersPerDayRpt,1)}</div></div>
+  <div class="sc"><div class="lbl">Max Workers / Day</div><div class="val">${fmtNum(maxWorkersPerDayRpt,1)}</div></div>
 </div>
 <table class="sum-table">
   <thead><tr><th>Category</th><th>Original Budget</th><th>Escalated Total</th><th>Difference</th><th>Esc. %</th></tr></thead>
@@ -1187,7 +1292,12 @@ function Results({results,formData,onClear,onSave}){
   const {summary:s,weeklyData,phaseBreakdown}=results;
   const [showWeekly,setShowWeekly]=useState(false);
   const tick=makeTick(weeklyData.length);
-  const summaryCards=[{label:'Original Budget',val:fmt$(s.totalBudget)},{label:'Escalated Total',val:fmt$(s.totalEscalated)},{label:'$ Difference',diff:s.totalDifference},{label:'% Escalation',val:fmtPct(s.totalEscPercent)}];
+  const activeWorkerWeeks=weeklyData.filter(w=>(w.workers||0)>0).map(w=>w.workers);
+  const minWorkersPerDay=activeWorkerWeeks.length?Math.min(...activeWorkerWeeks):0;
+  const maxWorkersPerDay=activeWorkerWeeks.length?Math.max(...activeWorkerWeeks):0;
+  const activeHourWeeks=weeklyData.filter(w=>(w.hours||0)>0).map(w=>w.hours);
+  const avgHoursPerWeek=activeHourWeeks.length?activeHourWeeks.reduce((s,h)=>s+h,0)/activeHourWeeks.length:0;
+  const summaryCards=[{label:'Original Budget',val:fmt$(s.totalBudget)},{label:'Escalated Total',val:fmt$(s.totalEscalated)},{label:'$ Difference',diff:s.totalDifference},{label:'% Escalation',val:fmtPct(s.totalEscPercent)},{label:'Min Workers / Day',val:fmtNum(minWorkersPerDay,1)},{label:'Max Workers / Day',val:fmtNum(maxWorkersPerDay,1)}];
   return React.createElement('div',{className:'fade-in',style:{display:'flex',flexDirection:'column',gap:20}},
     React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}},
       React.createElement('button',{onClick:onClear,style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:500,color:'#6b7280',border:'1px solid #d1d5db',borderRadius:8,padding:'6px 14px',background:'#fff',cursor:'pointer'}},'↺ Recalculate'),
@@ -1197,7 +1307,7 @@ function Results({results,formData,onClear,onSave}){
       )
     ),
     React.createElement('div',{style:CARD},
-      React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Cost Summary'),
+      React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Summary'),
       React.createElement('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,marginBottom:20}},
         summaryCards.map(({label,val,diff})=>React.createElement('div',{key:label,style:{background:'#f0f4f8',borderRadius:12,padding:14,border:'1px solid #e2e8f0'}},
           React.createElement('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}},label),
@@ -1217,12 +1327,13 @@ function Results({results,formData,onClear,onSave}){
     ),
     React.createElement(PhaseBreakdown,{phaseBreakdown}),
     React.createElement(PhaseOverlapChart,{phaseOverlapData:phaseOverlapData,phaseNames:phaseNames}),
-    React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.materialSeries||[],title:'Material Cost Breakdown Per Type',subtitle:'Weekly escalated material cost, stacked by material type'}),
-    React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.laborSeries||[],title:'Labor Cost Breakdown Per Type',subtitle:'Weekly escalated labor cost, stacked by labor type'}),
+    React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.materialSeries||[],title:'Material Cost Breakdown Per Type',subtitle:'Weekly escalated material cost, stacked by material type',palette:['#0d9488','#0f766e','#14b8a6','#115e59','#2dd4bf','#134e4a','#5eead4','#0891b2']}),
+    React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.laborSeries||[],title:'Labor Cost Breakdown Per Type',subtitle:'Weekly escalated labor cost, stacked by labor type',palette:['#ea580c','#c2410c','#f97316','#9a3412','#fb923c','#7c2d12','#fdba74','#dc2626']}),
     React.createElement('div',{style:CARD},
       React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Worker Hours per Week'),
-      React.createElement(ResponsiveContainer,{width:'100%',height:300},React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44}),React.createElement(Tooltip,{content:React.createElement(HrsTip,null)}),React.createElement(Bar,{dataKey:'hours',name:'Hours',fill:'#9333ea',radius:[3,3,0,0]})))
+      React.createElement(ResponsiveContainer,{width:'100%',height:300},React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44}),React.createElement(Tooltip,{content:React.createElement(HrsTip,null)}),React.createElement(Bar,{dataKey:'hours',name:'Hours',fill:'#9333ea',radius:[3,3,0,0]}),React.createElement(ReferenceLine,{y:avgHoursPerWeek,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgHoursPerWeek,1),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}})))
     ),
+    React.createElement(WorkersPerWeekChart,{weeklyData:weeklyData,blockHours:results.blockHours}),
     React.createElement('div',{style:{...CARD,padding:0}},
       React.createElement('button',{onClick:()=>setShowWeekly(v=>!v),style:{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',background:'none',border:'none',cursor:'pointer',fontSize:13,fontWeight:600,color:'#374151'}},
         React.createElement('span',{style:{textTransform:'uppercase',fontSize:11,letterSpacing:'0.05em'}},'Weekly Detail'),
@@ -1267,13 +1378,13 @@ function Results({results,formData,onClear,onSave}){
 function EmptyState(){
   return React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:20}},
     React.createElement('div',{style:CARD},
-      React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Cost Summary'),
+      React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Summary'),
       React.createElement('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,marginBottom:16}},
         ['Original Budget','Escalated Total','$ Difference','% Escalation'].map(l=>React.createElement('div',{key:l,style:{background:'#f0f4f8',borderRadius:12,padding:14,border:'1px solid #e2e8f0'}},React.createElement('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}},l),React.createElement('div',{style:{fontSize:22,fontWeight:700,color:'#d1d5db'}},'—')))
       ),
       React.createElement('p',{style:{fontSize:12,color:'#9ca3af',textAlign:'center',paddingTop:12,borderTop:'1px solid #f3f4f6'}},'Fill in project details and click ',React.createElement('strong',{style:{color:'#3b82f6'}},'Calculate'),' to see results')
     ),
-    ...['Material Cost Breakdown Per Type','Labor Cost Breakdown Per Type','Worker Hours per Week'].map(t=>React.createElement('div',{key:t,style:CARD},React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},t),React.createElement('div',{style:{height:200,background:'#f9fafb',borderRadius:12,border:'1px solid #f3f4f6',display:'flex',alignItems:'center',justifyContent:'center'}},React.createElement('span',{style:{fontSize:11,color:'#d1d5db',fontWeight:500}},'Chart will appear here'))))
+    ...['Material Cost Breakdown Per Type','Labor Cost Breakdown Per Type','Worker Hours per Week','Workers per Week'].map(t=>React.createElement('div',{key:t,style:CARD},React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},t),React.createElement('div',{style:{height:200,background:'#f9fafb',borderRadius:12,border:'1px solid #f3f4f6',display:'flex',alignItems:'center',justifyContent:'center'}},React.createElement('span',{style:{fontSize:11,color:'#d1d5db',fontWeight:500}},'Chart will appear here'))))
   );
 }
 
@@ -1297,24 +1408,31 @@ function randomFill(curves){
     const phaseLen=rand(6,18);
     const phaseEnd=addMonths(phaseStart,phaseLen);
     // Anniversary must be AFTER bid date - use bidDate + rand months
+    const genDates=()=>Array.from({length:rand(1,2)},(_,di)=>({
+      id:genEscId(),
+      date:fmtDate(addMonths(bidDate,rand(1,6)+di*6)),
+      recurring:rand(0,3)>0,
+    }));
     const materials=Array.from({length:rand(1,3)},()=>({
       name:matNames[rand(0,matNames.length-1)],
       budget:String(rand(100,5000)*1000),
       escalationPercent:String(rand(2,12)),
-      anniversaryDate:fmtDate(addMonths(bidDate,rand(1,6))),
+      escalationDates:genDates(),
     }));
     const labors=Array.from({length:rand(1,2)},()=>({
       name:labNames[rand(0,labNames.length-1)],
       budget:String(rand(50,3000)*1000),
       escalationPercent:String(rand(2,8)),
-      anniversaryDate:fmtDate(addMonths(bidDate,rand(1,6))),
+      escalationDates:genDates(),
     }));
     const curve=activeCurves[rand(0,activeCurves.length-1)];
     phases.push({name:'Phase '+(p+1),startDate:fmtDate(phaseStart),endDate:fmtDate(phaseEnd),estimatedHours:String(rand(1000,50000)),curveId:curve?curve.id:'',materials,labors});
     phaseStart=addMonths(phaseStart,rand(3,phaseLen));
   }
   const latestPhaseEnd=phases.reduce((latest,p)=>p.endDate>latest?p.endDate:latest,'');
-  return{projectName:projectNames[rand(0,projectNames.length-1)],estimateNumber:'EST-'+rand(1000,9999),bidNumber:'BT-'+rand(10000,99999),date:fmtDate(today),bidDate:fmtDate(bidDate),scheduleStart:fmtDate(scheduleStart),scheduleEnd:latestPhaseEnd,phases};
+  const workDays={mon:true,tue:true,wed:true,thu:true,fri:true,sat:rand(0,3)===0,sun:false};
+  if(workDays.sat) workDays.sun=rand(0,3)===0;
+  return{projectName:projectNames[rand(0,projectNames.length-1)],estimateNumber:'EST-'+rand(1000,9999),bidNumber:'BT-'+rand(10000,99999),date:fmtDate(today),bidDate:fmtDate(bidDate),scheduleStart:fmtDate(scheduleStart),scheduleEnd:latestPhaseEnd,workDays,phases};
 }
 
 
@@ -1438,7 +1556,13 @@ function Calculator({toast,error,user,loadedProject,onProjectLoaded}){
   // Load a project when one is passed in
   useEffect(()=>{
     if(loadedProject){
-      setForm(loadedProject.form_data||defaultForm());
+      const raw=loadedProject.form_data||defaultForm();
+      const migrated={...raw,workDays:normalizeWorkDays(raw.workDays),phases:(raw.phases||[]).map(ph=>({
+        ...ph,
+        materials:(ph.materials||[]).map(m=>({...m,escalationDates:normalizeEscalationDates(m)})),
+        labors:(ph.labors||[]).map(l=>({...l,escalationDates:normalizeEscalationDates(l)}))
+      }))};
+      setForm(migrated);
       setResults(loadedProject.results||null);
       setSavedProjectId(loadedProject.id);
       if(onProjectLoaded) onProjectLoaded();
@@ -1476,13 +1600,17 @@ function Calculator({toast,error,user,loadedProject,onProjectLoaded}){
     e.preventDefault();
     for(const phase of form.phases){
       for(const mat of (phase.materials||[])){
-        if(mat.anniversaryDate&&form.bidDate&&mat.anniversaryDate<=form.bidDate){
-          error('Anniversary date for "'+mat.name+'" in "'+phase.name+'" must be after the bid date.');return;
+        for(const ed of (mat.escalationDates||[])){
+          if(ed.date&&form.bidDate&&ed.date<=form.bidDate){
+            error('An escalation date for "'+mat.name+'" in "'+phase.name+'" must be after the bid date.');return;
+          }
         }
       }
       for(const lab of (phase.labors||[])){
-        if(lab.anniversaryDate&&form.bidDate&&lab.anniversaryDate<=form.bidDate){
-          error('Anniversary date for "'+lab.name+'" in "'+phase.name+'" must be after the bid date.');return;
+        for(const ed of (lab.escalationDates||[])){
+          if(ed.date&&form.bidDate&&ed.date<=form.bidDate){
+            error('An escalation date for "'+lab.name+'" in "'+phase.name+'" must be after the bid date.');return;
+          }
         }
       }
     }
@@ -1512,6 +1640,22 @@ function Calculator({toast,error,user,loadedProject,onProjectLoaded}){
           React.createElement('div',{style:g2},
             React.createElement('div',null,React.createElement(Label,{required:true},'Start Date'),React.createElement(SInput,{type:'date',value:form.scheduleStart,onChange:e=>setField('scheduleStart',e.target.value)})),
             React.createElement('div',null,React.createElement(Label,{required:true},'End Date'),React.createElement(SInput,{type:'date',value:form.scheduleEnd,onChange:e=>setField('scheduleEnd',e.target.value)}))
+          ),
+          React.createElement('div',{style:{marginTop:12}},
+            React.createElement(Label,null,'Work Week'),
+            React.createElement('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+              DAY_KEYS.map(day=>{
+                const workDays=normalizeWorkDays(form.workDays);
+                const checked=!!workDays[day];
+                return React.createElement('label',{key:day,style:{display:'flex',alignItems:'center',gap:5,fontSize:11,color:checked?'#fff':'rgba(255,255,255,0.5)',background:checked?'rgba(52,211,153,0.15)':'rgba(255,255,255,0.05)',border:'1px solid '+(checked?'rgba(52,211,153,0.5)':'rgba(255,255,255,0.15)'),borderRadius:8,padding:'6px 10px',cursor:'pointer',fontWeight:600}},
+                  React.createElement('input',{type:'checkbox',checked:checked,onChange:e=>setField('workDays',{...workDays,[day]:e.target.checked}),style:{cursor:'pointer'}}),
+                  DAY_LABELS[day]
+                );
+              })
+            ),
+            React.createElement('p',{style:{fontSize:10,color:'rgba(255,255,255,0.45)',marginTop:6}},
+              `Minimum staffing block: ${getBlockHours(form.workDays)} hrs/week (${DAY_KEYS.filter(d=>normalizeWorkDays(form.workDays)[d]).length}-day week). This is the smallest weekly hours the adaptive curve will schedule per active week.`
+            )
           )
         ),
         React.createElement(SectionCard,{title:'Phases',accent:'#fb923c'},
