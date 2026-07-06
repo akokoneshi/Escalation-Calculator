@@ -1009,7 +1009,8 @@ function CostBreakdownChart({weeklyData,series,title,subtitle,palette}){
 function WorkersPerWeekChart({weeklyData,blockHours}){
   const tick=makeTick(weeklyData.length);
   const activeWeeks=weeklyData.filter(w=>(w.workers||0)>0);
-  const avgWorkers=activeWeeks.length?activeWeeks.reduce((s,w)=>s+w.workers,0)/activeWeeks.length:0;
+  const avgWorkersRaw=activeWeeks.length?activeWeeks.reduce((s,w)=>s+w.workers,0)/activeWeeks.length:0;
+  const avgWorkers=Math.ceil(avgWorkersRaw);
   const bh=blockHours||40;
   // Display-only rounding: a chart can't show a fraction of a person, so round each
   // week's crew size up to a whole worker here. This does not touch the underlying
@@ -1020,7 +1021,7 @@ function WorkersPerWeekChart({weeklyData,blockHours}){
     return React.createElement('div',{style:{background:'#fff',border:'1px solid #e5e7eb',borderRadius:8,padding:'8px 12px',fontSize:11,boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}},
       React.createElement('p',{style:{fontWeight:600,color:'#374151',marginBottom:4}},label),
       payload.map((p,i)=>React.createElement('p',{key:i,style:{color:p.color}},`${p.name}: ${fmtNum(p.value,0)}`)),
-      React.createElement('p',{style:{color:'#f97316',marginTop:2}},`Avg: ${fmtNum(avgWorkers,1)}`)
+      React.createElement('p',{style:{color:'#f97316',marginTop:2}},`Avg: ${fmtNum(avgWorkers,0)}`)
     );
   };
   return React.createElement('div',{style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
@@ -1032,7 +1033,7 @@ function WorkersPerWeekChart({weeklyData,blockHours}){
         React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),
         React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44,allowDecimals:false}),
         React.createElement(Tooltip,{content:React.createElement(WTip,null)}),
-        React.createElement(ReferenceLine,{y:avgWorkers,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgWorkers,1),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}}),
+        React.createElement(ReferenceLine,{y:avgWorkers,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgWorkers,0),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}}),
         React.createElement(Bar,{dataKey:'workersDisplay',name:'Workers',fill:'#0891b2',radius:[3,3,0,0]})
       )
     )
@@ -1042,8 +1043,8 @@ function WorkersPerWeekChart({weeklyData,blockHours}){
 function printReport(results, form) {
   const s = results.summary;
   const activeWorkerWeeksRpt=(results.weeklyData||[]).filter(w=>(w.workers||0)>0).map(w=>w.workers);
-  const minWorkersPerDayRpt=activeWorkerWeeksRpt.length?Math.min(...activeWorkerWeeksRpt):0;
-  const maxWorkersPerDayRpt=activeWorkerWeeksRpt.length?Math.max(...activeWorkerWeeksRpt):0;
+  const minWorkersPerDayRpt=activeWorkerWeeksRpt.length?Math.ceil(Math.min(...activeWorkerWeeksRpt)):0;
+  const maxWorkersPerDayRpt=activeWorkerWeeksRpt.length?Math.ceil(Math.max(...activeWorkerWeeksRpt)):0;
   const fmt$ = v => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(v||0);
   const fmtPct = v => ((v||0)*100).toFixed(2)+'%';
   const fmtNum = (v,d=1) => (v||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -1250,8 +1251,8 @@ tr{page-break-inside:avoid;break-inside:avoid}
   <div class="sc"><div class="lbl">Escalated Total</div><div class="val">${fmt$(s.totalEscalated)}</div></div>
   <div class="sc"><div class="lbl">$ Difference</div><div class="val ${s.totalDifference>0?'pos':'neg'}">${s.totalDifference>0?'+':''}${fmt$(s.totalDifference)}</div></div>
   <div class="sc"><div class="lbl">% Escalation</div><div class="val">${fmtPct(s.totalEscPercent)}</div></div>
-  <div class="sc"><div class="lbl">Min Workers / Day</div><div class="val">${fmtNum(minWorkersPerDayRpt,1)}</div></div>
-  <div class="sc"><div class="lbl">Max Workers / Day</div><div class="val">${fmtNum(maxWorkersPerDayRpt,1)}</div></div>
+  <div class="sc"><div class="lbl">Min Workers / Day</div><div class="val">${fmtNum(minWorkersPerDayRpt,0)}</div></div>
+  <div class="sc"><div class="lbl">Max Workers / Day</div><div class="val">${fmtNum(maxWorkersPerDayRpt,0)}</div></div>
 </div>
 <table class="sum-table">
   <thead><tr><th>Category</th><th>Original Budget</th><th>Escalated Total</th><th>Difference</th><th>Esc. %</th></tr></thead>
@@ -1297,11 +1298,11 @@ function Results({results,formData,onClear,onSave}){
   const [showWeekly,setShowWeekly]=useState(false);
   const tick=makeTick(weeklyData.length);
   const activeWorkerWeeks=weeklyData.filter(w=>(w.workers||0)>0).map(w=>w.workers);
-  const minWorkersPerDay=activeWorkerWeeks.length?Math.min(...activeWorkerWeeks):0;
-  const maxWorkersPerDay=activeWorkerWeeks.length?Math.max(...activeWorkerWeeks):0;
+  const minWorkersPerDay=activeWorkerWeeks.length?Math.ceil(Math.min(...activeWorkerWeeks)):0;
+  const maxWorkersPerDay=activeWorkerWeeks.length?Math.ceil(Math.max(...activeWorkerWeeks)):0;
   const activeHourWeeks=weeklyData.filter(w=>(w.hours||0)>0).map(w=>w.hours);
   const avgHoursPerWeek=activeHourWeeks.length?activeHourWeeks.reduce((s,h)=>s+h,0)/activeHourWeeks.length:0;
-  const summaryCards=[{label:'Original Budget',val:fmt$(s.totalBudget)},{label:'Escalated Total',val:fmt$(s.totalEscalated)},{label:'$ Difference',diff:s.totalDifference},{label:'% Escalation',val:fmtPct(s.totalEscPercent)},{label:'Min Workers / Day',val:fmtNum(minWorkersPerDay,1)},{label:'Max Workers / Day',val:fmtNum(maxWorkersPerDay,1)}];
+  const summaryCards=[{label:'Original Budget',val:fmt$(s.totalBudget)},{label:'Escalated Total',val:fmt$(s.totalEscalated)},{label:'$ Difference',diff:s.totalDifference},{label:'% Escalation',val:fmtPct(s.totalEscPercent)},{label:'Min Workers / Day',val:fmtNum(minWorkersPerDay,0)},{label:'Max Workers / Day',val:fmtNum(maxWorkersPerDay,0)}];
   return React.createElement('div',{className:'fade-in',style:{display:'flex',flexDirection:'column',gap:20}},
     React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}},
       React.createElement('button',{onClick:onClear,style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:500,color:'#6b7280',border:'1px solid #d1d5db',borderRadius:8,padding:'6px 14px',background:'#fff',cursor:'pointer'}},'↺ Recalculate'),
