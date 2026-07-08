@@ -872,7 +872,7 @@ function MaterialsForm({phase,phaseIdx,onChange,bidDate}){
   function rem(i){onChange(phaseIdx,'materials',phase.materials.filter((_,j)=>j!==i));}
   return React.createElement('div',{style:{marginTop:16}},
     React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}},
-      React.createElement('span',{style:{fontSize:11,fontWeight:700,color:'#c4b5fd',textTransform:'uppercase',letterSpacing:'0.06em'}},'📦 Materials'),
+      React.createElement('span',{style:{fontSize:11,fontWeight:700,color:'#c4b5fd',textTransform:'uppercase',letterSpacing:'0.06em'}},'Materials'),
       phase.materials.length<5&&React.createElement('button',{type:'button',onClick:add,style:{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#c4b5fd',fontWeight:600}},'+Add')
     ),
     phase.materials.map((m,i)=>React.createElement('div',{key:i,style:{background:'rgba(255,255,255,0.05)',borderRadius:8,padding:12,marginBottom:8}},
@@ -894,7 +894,7 @@ function LaborForm({phase,phaseIdx,onChange,bidDate}){
   function rem(i){onChange(phaseIdx,'labors',phase.labors.filter((_,j)=>j!==i));}
   return React.createElement('div',{style:{marginTop:16}},
     React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}},
-      React.createElement('span',{style:{fontSize:11,fontWeight:700,color:'#fca5a5',textTransform:'uppercase',letterSpacing:'0.06em'}},'👷 Labor'),
+      React.createElement('span',{style:{fontSize:11,fontWeight:700,color:'#fca5a5',textTransform:'uppercase',letterSpacing:'0.06em'}},'Labor'),
       phase.labors.length<5&&React.createElement('button',{type:'button',onClick:add,style:{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#fca5a5',fontWeight:600}},'+Add')
     ),
     phase.labors.map((l,i)=>React.createElement('div',{key:i,style:{background:'rgba(255,255,255,0.05)',borderRadius:8,padding:12,marginBottom:8}},
@@ -1925,7 +1925,7 @@ function HomeDashboard({user, onNewProject, onLoadProject, onShowProjects, toast
             ? React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',padding:48,gap:12,color:'#94a3b8'}},React.createElement(Spinner,{size:18}),' Loading…')
             : recent.length===0
               ? React.createElement('div',{style:{textAlign:'center',padding:48}},
-                  React.createElement('div',{style:{fontSize:36,marginBottom:10}},'📭'),
+                  React.createElement('div',{style:{marginBottom:10,display:'flex',justifyContent:'center'}},React.createElement(Icon,{name:'inbox',size:36,color:'#cbd5e1'})),
                   React.createElement('p',{style:{fontSize:14,fontWeight:600,color:'#374151',marginBottom:4}},'No projects yet'),
                   React.createElement('p',{style:{fontSize:12,color:'#94a3b8'}},'Start your first calculation to see it here.')
                 )
@@ -2149,7 +2149,7 @@ function AdminLogin({setPage,toast,error}){
   }
   return React.createElement('div',{style:{minHeight:'calc(100vh - 64px)',display:'flex',alignItems:'center',justifyContent:'center',background:'#f8fafc',padding:24}},
     React.createElement('div',{style:{width:'100%',maxWidth:400,background:'#fff',borderRadius:20,border:'1px solid #e2e8f0',boxShadow:'0 8px 32px rgba(0,0,0,0.08)',padding:36}},
-      React.createElement('div',{style:{textAlign:'center',marginBottom:32}},React.createElement('div',{style:{fontSize:40,marginBottom:12}},'🔐'),React.createElement('h1',{style:{fontSize:22,fontWeight:700,color:'#1e293b'}},'Admin Login'),React.createElement('p',{style:{fontSize:13,color:'#94a3b8',marginTop:6}},'Sign in to manage escalation curves')),
+      React.createElement('div',{style:{textAlign:'center',marginBottom:32}},React.createElement('div',{style:{marginBottom:12,display:'flex',justifyContent:'center'}},React.createElement(Icon,{name:'lock',size:40,color:'#1e3a5f'})),React.createElement('h1',{style:{fontSize:22,fontWeight:700,color:'#1e293b'}},'Admin Login'),React.createElement('p',{style:{fontSize:13,color:'#94a3b8',marginTop:6}},'Sign in to manage escalation curves')),
       React.createElement('form',{onSubmit:submit,style:{display:'flex',flexDirection:'column',gap:18}},
         React.createElement('div',null,React.createElement('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},'Password'),React.createElement('input',{type:'password',value:pw,onChange:e=>setPw(e.target.value),placeholder:'••••••••',style:{width:'100%',padding:'10px 14px',fontSize:14,border:'1px solid #d1d5db',borderRadius:10,outline:'none',background:'#f9fafb'},autoComplete:'current-password'})),
         React.createElement('button',{type:'submit',disabled:loading,style:{width:'100%',background:'#1e3a5f',color:'#fff',border:'none',borderRadius:10,padding:'11px',fontSize:14,fontWeight:700,cursor:loading?'not-allowed':'pointer',opacity:loading?.6:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginTop:4}},loading?[React.createElement(Spinner,{key:'s',size:16}),' Signing in…']:'Sign In')
@@ -2315,7 +2315,7 @@ function CurvesPanel({onClose, toast, error}) {
 
     deleteTarget&&React.createElement('div',{onClick:e=>{if(e.target===e.currentTarget)setDeleteTarget(null);},style:{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20}},
       React.createElement('div',{style:{background:'#fff',borderRadius:16,padding:28,maxWidth:400,width:'100%',textAlign:'center',boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}},
-        React.createElement('div',{style:{fontSize:40,marginBottom:12}},'⚠️'),
+        React.createElement('div',{style:{marginBottom:12,display:'flex',justifyContent:'center'}},React.createElement(Icon,{name:'alert',size:40,color:'#dc2626'})),
         React.createElement('h3',{style:{fontSize:17,fontWeight:700,color:'#1e293b',marginBottom:8}},'Delete Curve?'),
         React.createElement('p',{style:{fontSize:13,color:'#6b7280',marginBottom:20}},`"${deleteTarget.name}" will be permanently deleted.`),
         React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center'}},
@@ -2349,7 +2349,7 @@ function AdminDashboard({toast,error}){
       ),
       React.createElement('div',{style:{background:'#fff',borderRadius:16,border:'1px solid #e2e8f0',boxShadow:'0 2px 8px rgba(0,0,0,0.05)',overflow:'hidden'}},
         curves.length===0
-          ?React.createElement('div',{style:{textAlign:'center',padding:48}},React.createElement('div',{style:{fontSize:36,marginBottom:12}},'📊'),React.createElement('p',{style:{fontSize:15,fontWeight:600,color:'#374151'}},'No curves yet'))
+          ?React.createElement('div',{style:{textAlign:'center',padding:48}},React.createElement('div',{style:{marginBottom:12,display:'flex',justifyContent:'center'}},React.createElement(Icon,{name:'chart',size:36,color:'#cbd5e1'})),React.createElement('p',{style:{fontSize:15,fontWeight:600,color:'#374151'}},'No curves yet'))
           :React.createElement('table',{style:{width:'100%',borderCollapse:'collapse'}},
             React.createElement('thead',null,React.createElement('tr',null,['Name','Sum Check','Status','Created','Actions'].map((h,i)=>React.createElement('th',{key:h,style:{textAlign:i===4?'right':'left',padding:'10px 16px',fontSize:11,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb',borderBottom:'1px solid #f3f4f6'}},h)))),
             React.createElement('tbody',null,curves.map((c,i)=>{
@@ -2374,7 +2374,7 @@ function AdminDashboard({toast,error}){
     editTarget!==null&&React.createElement(CurveModal,{curve:editTarget?.id?editTarget:null,onClose:()=>setEditTarget(null),onSaved:reload,toast,error}),
     deleteTarget&&React.createElement('div',{onClick:e=>{if(e.target===e.currentTarget)setDeleteTarget(null);},style:{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:20}},
       React.createElement('div',{style:{background:'#fff',borderRadius:20,width:'100%',maxWidth:420,padding:28,textAlign:'center',boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}},
-        React.createElement('div',{style:{fontSize:40,marginBottom:16}},'⚠️'),
+        React.createElement('div',{style:{marginBottom:16,display:'flex',justifyContent:'center'}},React.createElement(Icon,{name:'alert',size:40,color:'#dc2626'})),
         React.createElement('h2',{style:{fontSize:18,fontWeight:700,color:'#1e293b',marginBottom:8}},'Delete Curve?'),
         React.createElement('p',{style:{fontSize:14,color:'#6b7280',marginBottom:24}},`This will permanently delete "${deleteTarget.name}". This cannot be undone.`),
         React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center'}},
@@ -2413,7 +2413,7 @@ function PasswordResetScreen({onDone}) {
   return React.createElement('div',{style:{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#1e3a5f 0%,#2d5a8e 100%)',padding:24}},
     React.createElement('div',{style:{width:'100%',maxWidth:420,background:'#fff',borderRadius:20,border:'1px solid #e2e8f0',boxShadow:'0 20px 60px rgba(0,0,0,0.2)',padding:40}},
       React.createElement('div',{style:{textAlign:'center',marginBottom:32}},
-        React.createElement('div',{style:{fontSize:48,marginBottom:12}},'🔑'),
+        React.createElement('div',{style:{marginBottom:12,display:'flex',justifyContent:'center'}},React.createElement(Icon,{name:'key',size:44,color:'#1e3a5f'})),
         React.createElement('h1',{style:{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}},'Set New Password'),
         React.createElement('p',{style:{fontSize:13,color:'#94a3b8'}},'Enter your new password below')
       ),
@@ -2532,7 +2532,7 @@ function SettingsPanel({user,onClose,toast,error}){
                 ),
                 React.createElement('div',{style:{display:'flex',gap:10}},
                   React.createElement('label',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px',background:'#1e3a5f',color:'#fff',borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:600}},
-                    '🔄 Replace Logo',
+                    React.createElement(Icon,{name:'refresh',size:14}),'Replace Logo',
                     React.createElement('input',{type:'file',accept:'image/*',style:{display:'none'},onChange:e=>handleLogoFile(e.target.files[0])})
                   ),
                   React.createElement('button',{onClick:removeLogo,style:{padding:'10px 16px',background:'#fef2f2',color:'#dc2626',border:'none',borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:600}},'Remove')
@@ -2543,7 +2543,7 @@ function SettingsPanel({user,onClose,toast,error}){
                 onDragLeave:()=>setDragging(false),
                 onDrop:e=>{e.preventDefault();setDragging(false);handleLogoFile(e.dataTransfer.files[0]);},
                 style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:36,background:dragging?'#fdf3e7':'#f8fafc',borderRadius:12,border:`2px dashed ${dragging?'#b45309':'#cbd5e1'}`,cursor:'pointer'}},
-                React.createElement('div',{style:{fontSize:36}},'🏢'),
+                React.createElement(Icon,{name:'building',size:36,color:'#94a3b8'}),
                 React.createElement('div',{style:{fontSize:13,fontWeight:600,color:'#374151'}},'Upload Company Logo'),
                 React.createElement('div',{style:{fontSize:11,color:'#94a3b8'}},'PNG, JPG, SVG — max 2MB'),
                 React.createElement('div',{style:{background:'#1e3a5f',color:'#fff',padding:'7px 18px',borderRadius:8,fontSize:12,fontWeight:600}},'Choose File'),
@@ -2599,7 +2599,7 @@ function AuthScreen({onLogin}) {
   return React.createElement('div',{style:{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#1e3a5f 0%,#2d5a8e 100%)',padding:24}},
     React.createElement('div',{style:{width:'100%',maxWidth:420,background:'#fff',borderRadius:20,border:'1px solid #e2e8f0',boxShadow:'0 20px 60px rgba(0,0,0,0.2)',padding:40}},
       React.createElement('div',{style:{textAlign:'center',marginBottom:32}},
-        React.createElement('div',{style:{fontSize:48,marginBottom:12}},'📊'),
+        React.createElement('div',{style:{marginBottom:12,display:'flex',justifyContent:'center'}},React.createElement(Icon,{name:'chart',size:44,color:'#1e3a5f'})),
         React.createElement('h1',{style:{fontSize:22,fontWeight:700,color:'#1e293b',marginBottom:4}},'Escalation Calculator'),
         
       ),
@@ -2621,14 +2621,14 @@ function AuthScreen({onLogin}) {
           React.createElement('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},'Password'),
           React.createElement('div',{style:{position:'relative'}},
             React.createElement('input',{type:showPw?'text':'password',value:password,onChange:e=>setPassword(e.target.value),placeholder:'••••••••',style:{...inp,paddingRight:40},required:mode!=='reset'}),
-            React.createElement('button',{type:'button',onClick:()=>setShowPw(v=>!v),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#94a3b8',lineHeight:1,padding:2}},showPw?'🙈':'👁')
+            React.createElement('button',{type:'button',onClick:()=>setShowPw(v=>!v),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#94a3b8',lineHeight:1,padding:2}},React.createElement(Icon,{name:showPw?'eyeOff':'eye',size:16,color:'#94a3b8'}))
           )
         ),
         mode==='signup'&&React.createElement('div',null,
           React.createElement('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}},'Confirm Password'),
           React.createElement('div',{style:{position:'relative'}},
             React.createElement('input',{type:showPw?'text':'password',value:confirm,onChange:e=>setConfirm(e.target.value),placeholder:'••••••••',style:{...inp,paddingRight:40},required:true}),
-            React.createElement('button',{type:'button',onClick:()=>setShowPw(v=>!v),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#94a3b8',lineHeight:1,padding:2}},showPw?'🙈':'👁')
+            React.createElement('button',{type:'button',onClick:()=>setShowPw(v=>!v),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#94a3b8',lineHeight:1,padding:2}},React.createElement(Icon,{name:showPw?'eyeOff':'eye',size:16,color:'#94a3b8'}))
           )
         ),
         mode==='login'&&React.createElement('div',{style:{textAlign:'right',marginTop:-6}},
@@ -2691,7 +2691,7 @@ function ProjectsPanel({onLoad, onClose, toast, error}) {
           ? React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',padding:48,gap:12,color:'#94a3b8'}},React.createElement(Spinner,{size:20}),' Loading…')
           : projects.length===0
             ? React.createElement('div',{style:{textAlign:'center',padding:48}},
-                React.createElement('div',{style:{fontSize:40,marginBottom:12}},'📂'),
+                React.createElement('div',{style:{marginBottom:12,display:'flex',justifyContent:'center'}},React.createElement(Icon,{name:'folder',size:40,color:'#cbd5e1'})),
                 React.createElement('p',{style:{fontSize:15,fontWeight:600,color:'#374151',marginBottom:4}},'No saved projects yet'),
                 React.createElement('p',{style:{fontSize:13,color:'#94a3b8'}},'Calculate a project and save it to see it here.')
               )
@@ -2712,6 +2712,30 @@ function ProjectsPanel({onLoad, onClose, toast, error}) {
 
 
 /* ── Logo Uploader Component ── */
+const ICON_PATHS = {
+  box: 'M12 3 3 7.5V16.5L12 21 21 16.5V7.5L12 3ZM3 7.5 12 12M12 12 21 7.5M12 12V21',
+  hardhat: 'M4 15a8 8 0 0 1 16 0v1H4v-1Z M2 15h20 M11 6.5V4h2v2.5',
+  inbox: 'M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z',
+  lock: 'M5 11h14v10H5V11Z M8 11V7a4 4 0 0 1 8 0v4',
+  alert: 'M12 3 1 21h22L12 3Z M12 9v4 M12 17h.01',
+  chart: 'M18 20V10 M12 20V4 M6 20v-6 M2 20h20',
+  key: 'M14.5 3a5.5 5.5 0 0 0-5.4 6.6L3 15.7V19h3.3l1-1h1.7v-1.7l1-1h1.7l1.9-1.9A5.5 5.5 0 1 0 14.5 3ZM17 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z',
+  refresh: 'M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+  building: 'M4 21V7l8-4 8 4v14 M9 21v-6h6v6 M9 7h.01 M15 7h.01 M9 11h.01 M15 11h.01',
+  eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+  eyeOff: 'M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.61 3.94M14.12 14.12a3 3 0 1 1-4.24-4.24 M1 1l22 22',
+  folder: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2Z',
+  gear: 'M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7ZM19.4 13.5c.08-.49.12-.99.12-1.5s-.04-1.01-.12-1.5l1.68-1.32a.5.5 0 0 0 .12-.64l-1.6-2.77a.5.5 0 0 0-.6-.22l-1.98.8a5.6 5.6 0 0 0-1.3-.75l-.3-2.1a.5.5 0 0 0-.5-.42h-3.2a.5.5 0 0 0-.5.42l-.3 2.1c-.47.18-.9.43-1.3.75l-1.98-.8a.5.5 0 0 0-.6.22l-1.6 2.77a.5.5 0 0 0 .12.64l1.68 1.32c-.08.49-.12.99-.12 1.5s.04 1.01.12 1.5l-1.68 1.32a.5.5 0 0 0-.12.64l1.6 2.77a.5.5 0 0 0 .6.22l1.98-.8c.4.32.83.57 1.3.75l.3 2.1a.5.5 0 0 0 .5.42h3.2a.5.5 0 0 0 .5-.42l.3-2.1c.47-.18.9-.43 1.3-.75l1.98.8a.5.5 0 0 0 .6-.22l1.6-2.77a.5.5 0 0 0-.12-.64L19.4 13.5Z',
+  door: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
+};
+function Icon({name, size=20, color='currentColor', strokeWidth=1.8, style={}}) {
+  const d = ICON_PATHS[name];
+  if (!d) return null;
+  return React.createElement('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:color,strokeWidth,strokeLinecap:'round',strokeLinejoin:'round',style:{flexShrink:0,...style}},
+    React.createElement('path',{d})
+  );
+}
+
 function LogoDisplay({size=48, style={}}) {
   const [logo, setLogo] = useState(getLogo());
   useEffect(() => {
@@ -2822,10 +2846,10 @@ function Navbar({page,setPage,user,onLogout,onShowProjects,onShowSettings}){
             React.createElement('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:2}},'Signed in as'),
             React.createElement('div',{style:{fontSize:12,fontWeight:600,color:'#1e293b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},user.email)
           ),
-          React.createElement('button',{onClick:()=>{onShowProjects();setOpen(false);},style:menuBtn,onMouseEnter:menuBtnHover,onMouseLeave:menuBtnLeave},'📂  My Projects'),
-          React.createElement('button',{onClick:()=>{onShowSettings();setOpen(false);},style:menuBtn,onMouseEnter:menuBtnHover,onMouseLeave:menuBtnLeave},'⚙️  Account Settings'),
+          React.createElement('button',{onClick:()=>{onShowProjects();setOpen(false);},style:menuBtn,onMouseEnter:menuBtnHover,onMouseLeave:menuBtnLeave},React.createElement(Icon,{name:'folder',size:15}),React.createElement('span',null,'My Projects')),
+          React.createElement('button',{onClick:()=>{onShowSettings();setOpen(false);},style:menuBtn,onMouseEnter:menuBtnHover,onMouseLeave:menuBtnLeave},React.createElement(Icon,{name:'gear',size:15}),React.createElement('span',null,'Account Settings')),
           React.createElement('div',{style:{borderTop:'1px solid #f1f5f9'}}),
-          React.createElement('button',{onClick:()=>{onLogout();setOpen(false);},style:{...menuBtn,color:'#dc2626'},onMouseEnter:e=>e.currentTarget.style.background='#fef2f2',onMouseLeave:menuBtnLeave},'🚪  Sign Out')
+          React.createElement('button',{onClick:()=>{onLogout();setOpen(false);},style:{...menuBtn,color:'#dc2626'},onMouseEnter:e=>e.currentTarget.style.background='#fef2f2',onMouseLeave:menuBtnLeave},React.createElement(Icon,{name:'door',size:15}),React.createElement('span',null,'Sign Out'))
         )
       )
     )
