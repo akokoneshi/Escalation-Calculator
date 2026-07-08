@@ -4,12 +4,13 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Escalation Calculator</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%231e3a5f'/><rect x='29' y='14' width='6' height='36' fill='%23b45309'/></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Merriweather+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Merriweather Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1e293b;line-height:1.5}
+body{font-family:'Merriweather Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#eef1ee;background-image:linear-gradient(rgba(30,58,95,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(30,58,95,0.035) 1px,transparent 1px);background-size:28px 28px;color:#1e293b;line-height:1.5}
 @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 .fade-in{animation:fadeIn 0.4s ease both}
@@ -806,7 +807,7 @@ function AccountingInput({value,onChange}){
 
 function DiffCell({value}){return React.createElement('span',{style:{color:value>0?'#dc2626':'#16a34a',fontWeight:600}},value>0?`+${fmt$(value)}`:fmt$(value));}
 function StatusBadge({active}){return React.createElement('span',{style:{padding:'2px 8px',borderRadius:999,fontSize:11,fontWeight:500,background:active?'#dcfce7':'#f1f5f9',color:active?'#15803d':'#64748b'}},active?'Active':'Inactive');}
-const CARD={background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'};
+const CARD={background:'#fff',borderRadius:6,border:'1px solid #d7dee2',padding:20,boxShadow:'none'};
 const TH=({children,right})=>React.createElement('th',{style:{textAlign:right?'right':'left',padding:'10px 16px',fontSize:11,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'}},[children]);
 const TD=({children,right,bold,color})=>React.createElement('td',{style:{textAlign:right?'right':'left',padding:'10px 16px',fontSize:12,color:color||'#374151',fontWeight:bold?700:400}},[children]);
 function SectionCard({title,accent,children}){return React.createElement('div',{style:{borderRadius:12,borderLeft:`4px solid ${accent}`,background:'rgba(255,255,255,0.05)',padding:20,marginBottom:16}},React.createElement('h2',{style:{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'rgba(255,255,255,0.7)',marginBottom:16}},title),children);}
@@ -958,7 +959,7 @@ function PhaseOverlapChart({phaseOverlapData,phaseNames}){
       payload.map((p,i)=>React.createElement('p',{key:i,style:{color:p.color}},p.name+': $'+Math.round(p.value).toLocaleString()))
     );
   };
-  return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
+  return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:6,border:'1px solid #d7dee2',padding:20,boxShadow:'none'}},
     React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},'Phase Cost Distribution'),
     React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},'Weekly escalated cost per phase — lines show 0 outside each phase\'s active dates'),
     React.createElement('div',{className:'report-chart-legend',style:{display:'flex',gap:16,flexWrap:'wrap',marginBottom:12}},
@@ -981,7 +982,7 @@ function PhaseOverlapChart({phaseOverlapData,phaseNames}){
 
 
 function CostBreakdownChart({weeklyData,series,title,subtitle,palette}){
-  const COLORS=palette||['#2563eb','#1d4ed8','#3b82f6','#1e40af','#60a5fa','#1e3a8a','#0ea5e9','#0369a1'];
+  const COLORS=palette||['#2563eb','#1d4ed8','#b45309','#1e40af','#60a5fa','#1e3a8a','#0ea5e9','#0369a1'];
   const tick=makeTick(weeklyData.length);
   const MTip=({active,payload,label})=>{
     if(!active||!payload?.length)return null;
@@ -996,7 +997,7 @@ function CostBreakdownChart({weeklyData,series,title,subtitle,palette}){
   const weekTotals=weeklyData.map(w=>series.reduce((s,m)=>s+(w[m.key]||0),0));
   const activeTotals=weekTotals.filter(t=>t>0);
   const avgTotal=activeTotals.length?activeTotals.reduce((s,t)=>s+t,0)/activeTotals.length:0;
-  return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
+  return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:6,border:'1px solid #d7dee2',padding:20,boxShadow:'none'}},
     React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},title),
     React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},subtitle),
     React.createElement('div',{className:'report-chart-legend',style:{display:'flex',gap:16,flexWrap:'wrap',marginBottom:12}},
@@ -1036,7 +1037,7 @@ function WorkersPerWeekChart({weeklyData,blockHours}){
       React.createElement('p',{style:{color:'#f97316',marginTop:2}},`Avg: ${fmtNum(avgWorkers,0)}`)
     );
   };
-  return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:16,border:'1px solid #e8edf2',padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.08)'}},
+  return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:6,border:'1px solid #d7dee2',padding:20,boxShadow:'none'}},
     React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},'Workers per Week'),
     React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},`Crew size per week (${bh} hrs = 1 worker, rounded up to whole people) \u2014 dashed line shows the average across active weeks`),
     React.createElement(ResponsiveContainer,{width:'100%',height:300},
@@ -1699,15 +1700,15 @@ function Results({results,formData,onClear,onSave}){
     React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}},
       React.createElement('button',{onClick:onClear,style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:500,color:'#6b7280',border:'1px solid #d1d5db',borderRadius:8,padding:'6px 14px',background:'#fff',cursor:'pointer'}},'↺ Recalculate'),
       React.createElement('div',{style:{display:'flex',gap:8}},
-        onSave&&React.createElement('button',{onClick:onSave,style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:'#fff',background:'#16a34a',border:'none',borderRadius:8,padding:'6px 18px',cursor:'pointer'}},'💾 Save Project'),
-        React.createElement('button',{onClick:()=>exportReportToExcel(results,formData),style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:'#fff',background:'#0f766e',border:'none',borderRadius:8,padding:'6px 18px',cursor:'pointer'}},'📊 Export to Excel'),
-        React.createElement('button',{onClick:()=>printReport(results,formData),style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:'#fff',background:'#1e3a5f',border:'none',borderRadius:8,padding:'6px 18px',cursor:'pointer'}},'🖨 Save Report / PDF')
+        onSave&&React.createElement('button',{onClick:onSave,style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:'#fff',background:'#16a34a',border:'none',borderRadius:8,padding:'6px 18px',cursor:'pointer'}},'Save Project'),
+        React.createElement('button',{onClick:()=>exportReportToExcel(results,formData),style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:'#fff',background:'#0f766e',border:'none',borderRadius:8,padding:'6px 18px',cursor:'pointer'}},'Export to Excel'),
+        React.createElement('button',{onClick:()=>printReport(results,formData),style:{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:'#fff',background:'#1e3a5f',border:'none',borderRadius:8,padding:'6px 18px',cursor:'pointer'}},'Print Report')
       )
     ),
     React.createElement('div',{style:CARD},
       React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Summary'),
       React.createElement('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,marginBottom:20}},
-        summaryCards.map(({label,val,diff})=>React.createElement('div',{key:label,style:{background:'#f0f4f8',borderRadius:12,padding:14,border:'1px solid #e2e8f0'}},
+        summaryCards.map(({label,val,diff})=>React.createElement('div',{key:label,style:{background:'#f0f4f8',borderRadius:4,padding:14,border:'1px solid #e2e8f0'}},
           React.createElement('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}},label),
           React.createElement('div',{style:{fontSize:18,fontWeight:700,color:'#1e293b'}},diff!==undefined?React.createElement(DiffCell,{value:diff}):val)
         ))
@@ -1744,7 +1745,7 @@ function Results({results,formData,onClear,onSave}){
               React.createElement('th',{style:{textAlign:'center',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Wk'),
               React.createElement('th',{style:{textAlign:'left',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Week Of'),
               React.createElement('th',{style:{textAlign:'center',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Hours'),
-              ...phaseNames.map(n=>React.createElement('th',{key:n,colSpan:2,style:{textAlign:'center',padding:'6px 8px',fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'#1e3a5f',background:'#eff6ff',borderLeft:'2px solid #bfdbfe'}},n)),
+              ...phaseNames.map(n=>React.createElement('th',{key:n,colSpan:2,style:{textAlign:'center',padding:'6px 8px',fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:'#1e3a5f',background:'#fdf3e7',borderLeft:'2px solid #bfdbfe'}},n)),
               React.createElement('th',{style:{textAlign:'right',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Cum. Mat'),
               React.createElement('th',{style:{textAlign:'right',padding:'6px 8px',fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'#6b7280',background:'#f9fafb'},rowSpan:2},'Cum. Labor')
             ),
@@ -1778,9 +1779,9 @@ function EmptyState(){
     React.createElement('div',{style:CARD},
       React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Summary'),
       React.createElement('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,marginBottom:16}},
-        ['Original Budget','Escalated Total','$ Difference','% Escalation'].map(l=>React.createElement('div',{key:l,style:{background:'#f0f4f8',borderRadius:12,padding:14,border:'1px solid #e2e8f0'}},React.createElement('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}},l),React.createElement('div',{style:{fontSize:22,fontWeight:700,color:'#d1d5db'}},'—')))
+        ['Original Budget','Escalated Total','$ Difference','% Escalation'].map(l=>React.createElement('div',{key:l,style:{background:'#f0f4f8',borderRadius:4,padding:14,border:'1px solid #e2e8f0'}},React.createElement('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}},l),React.createElement('div',{style:{fontSize:22,fontWeight:700,color:'#d1d5db'}},'—')))
       ),
-      React.createElement('p',{style:{fontSize:12,color:'#9ca3af',textAlign:'center',paddingTop:12,borderTop:'1px solid #f3f4f6'}},'Fill in project details and click ',React.createElement('strong',{style:{color:'#3b82f6'}},'Calculate'),' to see results')
+      React.createElement('p',{style:{fontSize:12,color:'#9ca3af',textAlign:'center',paddingTop:12,borderTop:'1px solid #f3f4f6'}},'Fill in project details and click ',React.createElement('strong',{style:{color:'#b45309'}},'Calculate'),' to see results')
     ),
     ...['Material Cost Breakdown Per Type','Labor Cost Breakdown Per Type','Worker Hours per Week','Workers per Week'].map(t=>React.createElement('div',{key:t,style:CARD},React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},t),React.createElement('div',{style:{height:200,background:'#f9fafb',borderRadius:12,border:'1px solid #f3f4f6',display:'flex',alignItems:'center',justifyContent:'center'}},React.createElement('span',{style:{fontSize:11,color:'#d1d5db',fontWeight:500}},'Chart will appear here'))))
   );
@@ -1890,14 +1891,18 @@ function HomeDashboard({user, onNewProject, onLoadProject, onShowProjects, toast
 
       // Quick action + stats row
       React.createElement('div',{style:{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:16,marginBottom:32}},
-        React.createElement('button',{onClick:onNewProject,style:{textAlign:'left',background:'#1e3a5f',border:'none',borderRadius:16,padding:28,cursor:'pointer',color:'#fff',boxShadow:'0 4px 16px rgba(30,58,95,0.2)',display:'flex',alignItems:'center',gap:20}},
-          React.createElement('div',{style:{fontSize:40}},'➕'),
+        React.createElement('button',{onClick:onNewProject,style:{textAlign:'left',background:'#1e3a5f',border:'none',borderRadius:6,padding:28,cursor:'pointer',color:'#fff',boxShadow:'none',display:'flex',alignItems:'center',gap:20}},
+          React.createElement('div',{style:{width:52,height:52,flexShrink:0,borderRadius:6,border:'1px solid rgba(255,255,255,0.25)',display:'flex',alignItems:'center',justifyContent:'center'}},
+            React.createElement('svg',{width:22,height:22,viewBox:'0 0 24 24',fill:'none',stroke:'#e3a75c',strokeWidth:2,strokeLinecap:'round'},
+              React.createElement('path',{d:'M12 5v14M5 12h14'})
+            )
+          ),
           React.createElement('div',null,
             React.createElement('div',{style:{fontSize:17,fontWeight:700,marginBottom:4}},'New Calculation'),
             React.createElement('div',{style:{fontSize:13,color:'rgba(255,255,255,0.7)'}},'Start a fresh escalation estimate from scratch')
           )
         ),
-        React.createElement('button',{onClick:onShowProjects,style:{textAlign:'left',background:'#fff',border:'1px solid #e2e8f0',borderRadius:16,padding:24,cursor:'pointer',boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}},
+        React.createElement('button',{onClick:onShowProjects,style:{textAlign:'left',background:'#fff',border:'1px solid #d7dee2',borderRadius:6,padding:24,cursor:'pointer',boxShadow:'none'}},
           React.createElement('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}},'Saved Projects'),
           React.createElement('div',{style:{fontSize:28,fontWeight:700,color:'#1e293b'}},total)
         ),
@@ -2111,9 +2116,9 @@ function Calculator({toast,error,user,loadedProject,onProjectLoaded}){
           React.createElement('span',{style:{color:'rgba(255,255,255,0.3)',marginLeft:8}},'(all phases)')
         ),
         React.createElement('div',{style:{display:'flex',gap:8}},
-          React.createElement('button',{type:'button',onClick:()=>setForm(randomFill(curves)),title:'Fill with random test data',style:{flexShrink:0,background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:12,color:'#93c5fd',padding:'10px 12px',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}},'🎲'),
-          React.createElement('button',{type:'button',onClick:()=>{setForm(defaultForm());setResults(null);},title:'Clear all fields',style:{flexShrink:0,background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:12,color:'#fca5a5',padding:'10px 12px',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}},'🗑'),
-          React.createElement('button',{type:'submit',onClick:submit,disabled:submitting,style:{flex:1,background:'#3b82f6',border:'none',borderRadius:12,color:'#fff',padding:'10px',fontSize:13,fontWeight:700,cursor:submitting?'not-allowed':'pointer',opacity:submitting?.6:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}},
+          React.createElement('button',{type:'button',onClick:()=>setForm(randomFill(curves)),title:'Fill with random test data',style:{flexShrink:0,background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:12,color:'#93c5fd',padding:'10px 12px',fontSize:11,fontWeight:700,letterSpacing:'0.04em',textTransform:'uppercase',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}},'Sample'),
+          React.createElement('button',{type:'button',onClick:()=>{setForm(defaultForm());setResults(null);},title:'Clear all fields',style:{flexShrink:0,background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:12,color:'#fca5a5',padding:'10px 12px',fontSize:11,fontWeight:700,letterSpacing:'0.04em',textTransform:'uppercase',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}},'Clear'),
+          React.createElement('button',{type:'submit',onClick:submit,disabled:submitting,style:{flex:1,background:'#b45309',border:'none',borderRadius:12,color:'#fff',padding:'10px',fontSize:13,fontWeight:700,cursor:submitting?'not-allowed':'pointer',opacity:submitting?.6:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}},
             submitting?[React.createElement(Spinner,{key:'s',size:16}),' Calculating…']:'Calculate Escalation →'
           )
         )
@@ -2244,7 +2249,7 @@ function CurvesPanel({onClose, toast, error}) {
           React.createElement('p',{style:{fontSize:11,color:'rgba(255,255,255,0.5)',marginTop:2}},'Drag the ⠿ handle to reorder. Order shown here matches the dropdown in Calculator.')
         ),
         React.createElement('div',{style:{display:'flex',gap:10,alignItems:'center'}},
-          React.createElement('button',{onClick:()=>setEditTarget({}),style:{background:'#3b82f6',color:'#fff',border:'none',borderRadius:8,padding:'8px 16px',fontSize:12,fontWeight:700,cursor:'pointer'}},'+New Curve'),
+          React.createElement('button',{onClick:()=>setEditTarget({}),style:{background:'#b45309',color:'#fff',border:'none',borderRadius:8,padding:'8px 16px',fontSize:12,fontWeight:700,cursor:'pointer'}},'+New Curve'),
           React.createElement('button',{onClick:onClose,style:{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'rgba(255,255,255,0.6)',lineHeight:1}},'×')
         )
       ),
@@ -2274,7 +2279,7 @@ function CurvesPanel({onClose, toast, error}) {
                 style:{
                   borderTop:i===0?'none':'1px solid #f3f4f6',
                   opacity:isDragging?0.4:1,
-                  background:isOver?'#eff6ff':'transparent',
+                  background:isOver?'#fdf3e7':'transparent',
                   cursor:'grab',
                   transition:'background 0.1s',
                 }
@@ -2294,7 +2299,7 @@ function CurvesPanel({onClose, toast, error}) {
                 ),
                 React.createElement('td',{style:{padding:'14px 20px',textAlign:'right'}},
                   React.createElement('div',{style:{display:'flex',gap:8,justifyContent:'flex-end'}},
-                    !c.type&&React.createElement('button',{onClick:()=>setEditTarget(c),style:{fontSize:12,fontWeight:500,color:'#3b82f6',background:'#eff6ff',border:'none',borderRadius:6,padding:'5px 12px',cursor:'pointer'}},'Edit'),
+                    !c.type&&React.createElement('button',{onClick:()=>setEditTarget(c),style:{fontSize:12,fontWeight:500,color:'#b45309',background:'#fdf3e7',border:'none',borderRadius:6,padding:'5px 12px',cursor:'pointer'}},'Edit'),
                     React.createElement('button',{onClick:()=>toggleActive(c),style:{fontSize:12,fontWeight:500,color:c.is_active?'#f59e0b':'#16a34a',background:c.is_active?'#fffbeb':'#f0fdf4',border:'none',borderRadius:6,padding:'5px 12px',cursor:'pointer'}},c.is_active?'Deactivate':'Activate'),
                     React.createElement('button',{onClick:()=>setDeleteTarget(c),style:{fontSize:12,fontWeight:500,color:'#ef4444',background:'#fef2f2',border:'none',borderRadius:6,padding:'5px 12px',cursor:'pointer'}},'Delete')
                   )
@@ -2356,7 +2361,7 @@ function AdminDashboard({toast,error}){
                 React.createElement('td',{style:{padding:'14px 16px',fontSize:12,color:'#9ca3af'}},fmtDate(c.created_at)),
                 React.createElement('td',{style:{padding:'14px 16px',textAlign:'right'}},
                   React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,justifyContent:'flex-end'}},
-                    React.createElement('button',{onClick:()=>setEditTarget(c),style:{fontSize:12,fontWeight:500,color:'#3b82f6',background:'none',border:'none',cursor:'pointer'}},'Edit'),
+                    React.createElement('button',{onClick:()=>setEditTarget(c),style:{fontSize:12,fontWeight:500,color:'#b45309',background:'none',border:'none',cursor:'pointer'}},'Edit'),
                     React.createElement('button',{onClick:()=>toggleActive(c),style:{fontSize:12,fontWeight:500,color:c.is_active?'#f59e0b':'#16a34a',background:'none',border:'none',cursor:'pointer'}},c.is_active?'Deactivate':'Activate'),
                     React.createElement('button',{onClick:()=>setDeleteTarget(c),style:{fontSize:12,fontWeight:500,color:'#ef4444',background:'none',border:'none',cursor:'pointer'}},'Delete')
                   )
@@ -2537,7 +2542,7 @@ function SettingsPanel({user,onClose,toast,error}){
                 onDragOver:e=>{e.preventDefault();setDragging(true);},
                 onDragLeave:()=>setDragging(false),
                 onDrop:e=>{e.preventDefault();setDragging(false);handleLogoFile(e.dataTransfer.files[0]);},
-                style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:36,background:dragging?'#eff6ff':'#f8fafc',borderRadius:12,border:`2px dashed ${dragging?'#3b82f6':'#cbd5e1'}`,cursor:'pointer'}},
+                style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:36,background:dragging?'#fdf3e7':'#f8fafc',borderRadius:12,border:`2px dashed ${dragging?'#b45309':'#cbd5e1'}`,cursor:'pointer'}},
                 React.createElement('div',{style:{fontSize:36}},'🏢'),
                 React.createElement('div',{style:{fontSize:13,fontWeight:600,color:'#374151'}},'Upload Company Logo'),
                 React.createElement('div',{style:{fontSize:11,color:'#94a3b8'}},'PNG, JPG, SVG — max 2MB'),
@@ -2696,7 +2701,7 @@ function ProjectsPanel({onLoad, onClose, toast, error}) {
                   React.createElement('div',{style:{fontSize:11,color:'#94a3b8'}},p.estimate_number?`${p.estimate_number} · `:'',`Saved ${fmtDt(p.updated_at||p.created_at)}`)
                 ),
                 React.createElement('div',{style:{display:'flex',gap:8,marginLeft:12}},
-                  React.createElement('button',{onClick:()=>loadProject(p.id),style:{fontSize:12,fontWeight:600,color:'#2563eb',background:'#eff6ff',border:'none',borderRadius:8,padding:'6px 12px',cursor:'pointer'}},'Load'),
+                  React.createElement('button',{onClick:()=>loadProject(p.id),style:{fontSize:12,fontWeight:600,color:'#2563eb',background:'#fdf3e7',border:'none',borderRadius:8,padding:'6px 12px',cursor:'pointer'}},'Load'),
                   React.createElement('button',{onClick:()=>deleteProject(p.id,p.project_name),disabled:deleting===p.id,style:{fontSize:12,fontWeight:600,color:'#dc2626',background:'#fef2f2',border:'none',borderRadius:8,padding:'6px 12px',cursor:'pointer'}},deleting===p.id?'…':'Delete')
                 )
               ))
@@ -2729,9 +2734,21 @@ function SideNav({active, onNavigate, onShowCurves, isAdmin, onShowAdmin}) {
   useEffect(()=>{ localStorage.setItem('esc_nav_collapsed', collapsed?'1':'0'); },[collapsed]);
 
   const items = [
-    {k:'home', icon:'🏠', label:'Home'},
-    {k:'calc', icon:'🧮', label:'Calculator'},
+    {k:'home', icon:'home', label:'Home'},
+    {k:'calc', icon:'calc', label:'Calculator'},
   ];
+
+  const NAV_ICONS = {
+    home: 'M3 10.5 12 3l9 7.5M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5',
+    calc: 'M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM7 7h10M7 11h2M11 11h2M15 11h2M7 15h2M11 15h2M15 15h2M7 19h2M11 19h2',
+    curves: 'M4 19V5M4 19h16M7 16l4-5 3 3 5-7',
+    admin: 'M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7ZM19.4 13.5c.08-.49.12-.99.12-1.5s-.04-1.01-.12-1.5l1.68-1.32a.5.5 0 0 0 .12-.64l-1.6-2.77a.5.5 0 0 0-.6-.22l-1.98.8a5.6 5.6 0 0 0-1.3-.75l-.3-2.1a.5.5 0 0 0-.5-.42h-3.2a.5.5 0 0 0-.5.42l-.3 2.1c-.47.18-.9.43-1.3.75l-1.98-.8a.5.5 0 0 0-.6.22l-1.6 2.77a.5.5 0 0 0 .12.64l1.68 1.32c-.08.49-.12.99-.12 1.5s.04 1.01.12 1.5l-1.68 1.32a.5.5 0 0 0-.12.64l1.6 2.77a.5.5 0 0 0 .6.22l1.98-.8c.4.32.83.57 1.3.75l.3 2.1a.5.5 0 0 0 .5.42h3.2a.5.5 0 0 0 .5-.42l.3-2.1c.47-.18.9-.43 1.3-.75l1.98.8a.5.5 0 0 0 .6-.22l1.6-2.77a.5.5 0 0 0-.12-.64L19.4 13.5Z',
+  };
+  function NavSvgIcon({name}) {
+    return React.createElement('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round',style:{flexShrink:0}},
+      React.createElement('path',{d:NAV_ICONS[name]})
+    );
+  }
 
   const itemStyle = (k) => ({
     display:'flex', alignItems:'center', gap:12, padding:collapsed?'10px':'10px 16px', borderRadius:10,
@@ -2750,7 +2767,7 @@ function SideNav({active, onNavigate, onShowCurves, isAdmin, onShowAdmin}) {
       onMouseEnter:e=>{if(active!==k)e.currentTarget.style.background='rgba(255,255,255,0.06)';},
       onMouseLeave:e=>{if(active!==k)e.currentTarget.style.background='transparent';},
     },
-      React.createElement('span',{style:{fontSize:16,flexShrink:0}},icon),
+      React.createElement(NavSvgIcon,{name:icon}),
       !collapsed&&React.createElement('span',{style:{whiteSpace:'nowrap',overflow:'hidden'}},label)
     );
   }
@@ -2758,10 +2775,10 @@ function SideNav({active, onNavigate, onShowCurves, isAdmin, onShowAdmin}) {
   return React.createElement('aside',{style:{width:collapsed?64:200,minWidth:collapsed?64:200,background:'#16294a',height:'calc(100vh - 64px)',position:'sticky',top:64,display:'flex',flexDirection:'column',padding:'20px 12px',borderRight:'1px solid rgba(255,255,255,0.06)',transition:'width 0.2s, min-width 0.2s'}},
     React.createElement('div',{style:{flex:1}},
       items.map(it => React.createElement(NavItem,{key:it.k,k:it.k,icon:it.icon,label:it.label,onClick:()=>onNavigate(it.k)})),
-      React.createElement(NavItem,{k:'curves',icon:'📈',label:'Escalation Curves',onClick:onShowCurves})
+      React.createElement(NavItem,{k:'curves',icon:'curves',label:'Escalation Curves',onClick:onShowCurves})
     ),
     isAdmin&&React.createElement('div',{style:{borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:12,marginBottom:12}},
-      React.createElement(NavItem,{k:'admin',icon:'🛠️',label:'Admin Dashboard',onClick:onShowAdmin})
+      React.createElement(NavItem,{k:'admin',icon:'admin',label:'Admin Dashboard',onClick:onShowAdmin})
     ),
     React.createElement('div',{style:{borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:12,display:'flex',justifyContent:collapsed?'center':'flex-end'}},
       React.createElement('button',{
@@ -2788,7 +2805,7 @@ function Navbar({page,setPage,user,onLogout,onShowProjects,onShowSettings}){
   const menuBtnHover=e=>e.currentTarget.style.background='#f1f5f9';
   const menuBtnLeave=e=>e.currentTarget.style.background='none';
 
-  return React.createElement('nav',{style:{background:'#1e3a5f',boxShadow:'0 1px 4px rgba(0,0,0,0.2)',position:'sticky',top:0,zIndex:100}},
+  return React.createElement('nav',{style:{background:'#1e3a5f',borderBottom:'3px solid #b45309',position:'sticky',top:0,zIndex:100}},
     React.createElement('div',{style:{width:'100%',padding:'0 20px',display:'flex',alignItems:'center',justifyContent:'space-between',height:64}},
       React.createElement('div',{onClick:()=>setPage('home'),style:{cursor:'pointer',display:'flex',alignItems:'center',gap:12,flexShrink:0}},
         React.createElement(LogoDisplay,{size:38}),
