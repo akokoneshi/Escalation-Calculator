@@ -696,6 +696,7 @@ function calculate(form, curves) {
     const phaseWeeklyCost=new Array(allWeeks.length).fill(0);
     const phaseWeeklyMat=new Array(allWeeks.length).fill(0);
     const phaseWeeklyLab=new Array(allWeeks.length).fill(0);
+    const phaseWeeklyHrs=new Array(allWeeks.length).fill(0);
     const matResults=[];
     for(const mat of phase.materials){
       const budget=parseFloat(String(mat.budget).replace(/[^0-9.]/g,''))||0;
@@ -728,14 +729,15 @@ function calculate(form, curves) {
       labResults.push({name:lab.name,budgeted:budget,escalated:totalEscalated,difference:totalEscalated-budget,escPercent:budget>0?(totalEscalated-budget)/budget:0});
       totalBudgetedLabor+=budget;totalEscalatedLabor+=totalEscalated;
     }
+    const phaseActiveGi=[];
     phaseWeeks.forEach((weekDate,wi)=>{
       const gi=weeklyMap.findIndex(w=>w.weekDate.toDateString()===weekDate.toDateString());
-      if(gi>=0) weeklyMap[gi].hours+=hoursPerWeek[wi];
+      if(gi>=0){weeklyMap[gi].hours+=hoursPerWeek[wi];phaseWeeklyHrs[gi]+=hoursPerWeek[wi];phaseActiveGi.push(gi);}
     });
-    phaseWeeklyTotals.push({phaseName:phase.name,weeklyCosts:phaseWeeklyCost,weeklyMat:phaseWeeklyMat,weeklyLab:phaseWeeklyLab});
+    phaseWeeklyTotals.push({phaseName:phase.name,weeklyCosts:phaseWeeklyCost,weeklyMat:phaseWeeklyMat,weeklyLab:phaseWeeklyLab,weeklyHrs:phaseWeeklyHrs,activeGi:phaseActiveGi});
     const pBudMat=matResults.reduce((s,m)=>s+m.budgeted,0),pEscMat=matResults.reduce((s,m)=>s+m.escalated,0);
     const pBudLab=labResults.reduce((s,l)=>s+l.budgeted,0),pEscLab=labResults.reduce((s,l)=>s+l.escalated,0);
-    phaseBreakdown.push({phaseName:phase.name,materials:matResults,phaseMaterialTotal:{budgeted:pBudMat,escalated:pEscMat,difference:pEscMat-pBudMat,escPercent:pBudMat>0?(pEscMat-pBudMat)/pBudMat:0},labors:labResults,phaseLaborTotal:{budgeted:pBudLab,escalated:pEscLab,difference:pEscLab-pBudLab,escPercent:pBudLab>0?(pEscLab-pBudLab)/pBudLab:0},phaseTotal:{budgeted:pBudMat+pBudLab,escalated:pEscMat+pEscLab,difference:(pEscMat+pEscLab)-(pBudMat+pBudLab),escPercent:(pBudMat+pBudLab)>0?((pEscMat+pEscLab)-(pBudMat+pBudLab))/(pBudMat+pBudLab):0}});
+    phaseBreakdown.push({phaseName:phase.name,startDate:phase.startDate,endDate:phase.endDate,materials:matResults,phaseMaterialTotal:{budgeted:pBudMat,escalated:pEscMat,difference:pEscMat-pBudMat,escPercent:pBudMat>0?(pEscMat-pBudMat)/pBudMat:0},labors:labResults,phaseLaborTotal:{budgeted:pBudLab,escalated:pEscLab,difference:pEscLab-pBudLab,escPercent:pBudLab>0?(pEscLab-pBudLab)/pBudLab:0},phaseTotal:{budgeted:pBudMat+pBudLab,escalated:pEscMat+pEscLab,difference:(pEscMat+pEscLab)-(pBudMat+pBudLab),escPercent:(pBudMat+pBudLab)>0?((pEscMat+pEscLab)-(pBudMat+pBudLab))/(pBudMat+pBudLab):0}});
   }
   // Disambiguate duplicate material names across phases
   const nameCounts={};
@@ -765,7 +767,17 @@ function calculate(form, curves) {
     return row;
   });
   const totBud=totalBudgetedMaterial+totalBudgetedLabor,totEsc=totalEscalatedMaterial+totalEscalatedLabor;
-  return{summary:{totalBudget:totBud,totalEscalated:totEsc,totalDifference:totEsc-totBud,totalEscPercent:totBud>0?(totEsc-totBud)/totBud:0,budgetedMaterial:totalBudgetedMaterial,escalatedMaterial:totalEscalatedMaterial,materialDifference:totalEscalatedMaterial-totalBudgetedMaterial,materialEscPercent:totalBudgetedMaterial>0?(totalEscalatedMaterial-totalBudgetedMaterial)/totalBudgetedMaterial:0,budgetedLabor:totalBudgetedLabor,escalatedLabor:totalEscalatedLabor,laborDifference:totalEscalatedLabor-totalBudgetedLabor,laborEscPercent:totalBudgetedLabor>0?(totalEscalatedLabor-totalBudgetedLabor)/totalBudgetedLabor:0},weeklyData,phaseBreakdown,phaseOverlapData,phaseNames:phaseWeeklyTotals.map(p=>p.phaseName),materialSeries,laborSeries,blockHours};
+  // Per-phase averages (cost, material, labor, hours, workers) over each phase's own active weeks,
+  // plus the first/last week label of that phase — used to draw per-phase average reference lines on the charts.
+  const phaseStats=phaseWeeklyTotals.map(p=>{
+    const idxs=p.activeGi||[];
+    if(!idxs.length) return null;
+    const first=Math.min(...idxs), last=Math.max(...idxs);
+    const avg=arr=>idxs.reduce((s,i)=>s+(arr[i]||0),0)/idxs.length;
+    const avgHours=avg(p.weeklyHrs);
+    return{phaseName:p.phaseName,startWeekLabel:weeklyMap[first].weekLabel,endWeekLabel:weeklyMap[last].weekLabel,avgCost:avg(p.weeklyCosts),avgMaterial:avg(p.weeklyMat),avgLabor:avg(p.weeklyLab),avgHours,avgWorkers:avgHours/blockHours};
+  }).filter(Boolean);
+  return{summary:{totalBudget:totBud,totalEscalated:totEsc,totalDifference:totEsc-totBud,totalEscPercent:totBud>0?(totEsc-totBud)/totBud:0,budgetedMaterial:totalBudgetedMaterial,escalatedMaterial:totalEscalatedMaterial,materialDifference:totalEscalatedMaterial-totalBudgetedMaterial,materialEscPercent:totalBudgetedMaterial>0?(totalEscalatedMaterial-totalBudgetedMaterial)/totalBudgetedMaterial:0,budgetedLabor:totalBudgetedLabor,escalatedLabor:totalEscalatedLabor,laborDifference:totalEscalatedLabor-totalBudgetedLabor,laborEscPercent:totalBudgetedLabor>0?(totalEscalatedLabor-totalBudgetedLabor)/totalBudgetedLabor:0},weeklyData,phaseBreakdown,phaseOverlapData,phaseNames:phaseWeeklyTotals.map(p=>p.phaseName),phaseStats,materialSeries,laborSeries,blockHours};
 }
 const fmt$=v=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(v||0);
 const fmtPct=v=>`${((v||0)*100).toFixed(2)}%`;
@@ -773,6 +785,26 @@ const fmtShort$=v=>{if(!v||isNaN(v))return'$0';if(Math.abs(v)>=1e6)return`$${(v/
 const fmtNum=(v,d=1)=>v==null||isNaN(v)?'0':v.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmtDate=d=>d?new Date(d).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}):'—';
 const fmtBudget=n=>{if(!n||isNaN(n))return'$0';if(Math.abs(n)>=1e6)return`$${(n/1e6).toFixed(1)}M`;if(Math.abs(n)>=1e3)return`$${(n/1e3).toFixed(0)}K`;return`$${Math.round(n)}`;};
+// Shared phase color palette so a given phase always gets the same color across
+// the Phase Cost Distribution chart's lines and every chart's average list below it.
+const PHASE_COLORS=['#2563eb','#16a34a','#9333ea','#f97316','#e11d48','#0891b2','#d97706','#0f766e'];
+// A plain-text row of averages placed under a chart (instead of reference lines drawn on
+// top of the data, which get unreadable once a few phases overlap on the same chart).
+// Shows the overall average first, then one entry per phase (skipped for single-phase
+// projects, where the phase average would just duplicate the overall figure).
+function PhaseAverageList({phaseStats,statKey,overallAvg,fmtFn}){
+  const stats=phaseStats||[];
+  return React.createElement('div',{className:'report-chart-avglist',style:{marginTop:14,paddingTop:10,borderTop:'1px solid #eef1f4',display:'flex',flexWrap:'wrap',rowGap:8,columnGap:20,alignItems:'center'}},
+    React.createElement('div',{style:{display:'flex',alignItems:'center',gap:6}},
+      React.createElement('div',{style:{width:14,height:3,borderRadius:2,background:'#f97316',flexShrink:0}}),
+      React.createElement('span',{style:{fontSize:11,color:'#1e293b',fontWeight:700}},'Overall Average: '+fmtFn(overallAvg))
+    ),
+    stats.length>1 && stats.map((p,i)=>React.createElement('div',{key:p.phaseName,style:{display:'flex',alignItems:'center',gap:6}},
+      React.createElement('div',{style:{width:14,height:3,borderRadius:2,background:PHASE_COLORS[i%PHASE_COLORS.length],flexShrink:0}}),
+      React.createElement('span',{style:{fontSize:11,color:'#374151',fontWeight:500}},p.phaseName+' Average: '+fmtFn(p[statKey]||0))
+    ))
+  );
+}
 
 /* ── Toast ── */
 let tid=0;
@@ -948,10 +980,13 @@ function PhaseBreakdown({phaseBreakdown}){
 }
 
 
-function PhaseOverlapChart({phaseOverlapData,phaseNames}){
+function PhaseOverlapChart({phaseOverlapData,phaseNames,phaseStats}){
   if(!phaseOverlapData||phaseNames.length<2)return null;
-  const COLORS=['#2563eb','#16a34a','#9333ea','#f97316','#e11d48','#0891b2','#d97706','#0f766e'];
+  const COLORS=PHASE_COLORS;
   const tick=makeTick(phaseOverlapData.length);
+  const weekTotals=phaseOverlapData.map(row=>phaseNames.reduce((s,n)=>s+(row[n]||0),0));
+  const activeTotals=weekTotals.filter(t=>t>0);
+  const overallAvg=activeTotals.length?activeTotals.reduce((s,t)=>s+t,0)/activeTotals.length:0;
   const PhTip=({active,payload,label})=>{
     if(!active||!payload?.length)return null;
     return React.createElement('div',{style:{background:'#fff',border:'1px solid #e5e7eb',borderRadius:8,padding:'8px 12px',fontSize:11,boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}},
@@ -976,12 +1011,13 @@ function PhaseOverlapChart({phaseOverlapData,phaseNames}){
         React.createElement(Tooltip,{content:React.createElement(PhTip,null)}),
         ...phaseNames.map((name,i)=>React.createElement(Line,{key:name,type:'monotone',dataKey:name,name:name,stroke:COLORS[i%COLORS.length],strokeWidth:2,dot:false,activeDot:{r:4}}))
       )
-    )
+    ),
+    React.createElement(PhaseAverageList,{phaseStats:phaseStats,statKey:'avgCost',overallAvg:overallAvg,fmtFn:fmtShort$})
   );
 }
 
 
-function CostBreakdownChart({weeklyData,series,title,subtitle,palette}){
+function CostBreakdownChart({weeklyData,series,title,subtitle,palette,phaseStats,statKey}){
   const COLORS=palette||['#2563eb','#1d4ed8','#b45309','#1e40af','#60a5fa','#1e3a8a','#0ea5e9','#0369a1'];
   const tick=makeTick(weeklyData.length);
   const MTip=({active,payload,label})=>{
@@ -1012,14 +1048,14 @@ function CostBreakdownChart({weeklyData,series,title,subtitle,palette}){
         React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),
         React.createElement(YAxis,{tickFormatter:fmtShort$,tick:{fontSize:11,fill:'#9ca3af'},width:60,tickCount:9}),
         React.createElement(Tooltip,{content:React.createElement(MTip,null),cursor:{fill:'rgba(0,0,0,0.04)'}}),
-        ...series.map((m,i)=>React.createElement(Bar,{key:m.key,dataKey:m.key,name:m.name,stackId:'1',fill:COLORS[i%COLORS.length],radius:i===series.length-1?[3,3,0,0]:[0,0,0,0],isAnimationActive:false})),
-        React.createElement(ReferenceLine,{y:avgTotal,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtShort$(avgTotal),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}})
+        ...series.map((m,i)=>React.createElement(Bar,{key:m.key,dataKey:m.key,name:m.name,stackId:'1',fill:COLORS[i%COLORS.length],radius:i===series.length-1?[3,3,0,0]:[0,0,0,0],isAnimationActive:false}))
       )
-    )
+    ),
+    React.createElement(PhaseAverageList,{phaseStats:phaseStats,statKey:statKey,overallAvg:avgTotal,fmtFn:fmtShort$})
   );
 }
 
-function WorkersPerWeekChart({weeklyData,blockHours}){
+function WorkersPerWeekChart({weeklyData,blockHours,phaseStats}){
   const tick=makeTick(weeklyData.length);
   const activeWeeks=weeklyData.filter(w=>(w.workers||0)>0);
   const avgWorkersRaw=activeWeeks.length?activeWeeks.reduce((s,w)=>s+w.workers,0)/activeWeeks.length:0;
@@ -1039,17 +1075,17 @@ function WorkersPerWeekChart({weeklyData,blockHours}){
   };
   return React.createElement('div',{className:'report-chart-card',style:{background:'#fff',borderRadius:6,border:'1px solid #d7dee2',padding:20,boxShadow:'none'}},
     React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}},'Workers per Week'),
-    React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},`Crew size per week (${bh} hrs = 1 worker, rounded up to whole people) \u2014 dashed line shows the average across active weeks`),
+    React.createElement('p',{style:{fontSize:11,color:'#94a3b8',marginBottom:12}},`Crew size per week (${bh} hrs = 1 worker, rounded up to whole people)`),
     React.createElement(ResponsiveContainer,{width:'100%',height:300},
       React.createElement(BarChart,{data:chartData,margin:{top:8,right:16,left:8,bottom:55}},
         React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),
         React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),
         React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44,allowDecimals:false,tickCount:8}),
         React.createElement(Tooltip,{content:React.createElement(WTip,null)}),
-        React.createElement(ReferenceLine,{y:avgWorkers,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgWorkers,0),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}}),
         React.createElement(Bar,{dataKey:'workersDisplay',name:'Workers',fill:'#0891b2',radius:[3,3,0,0]})
       )
-    )
+    ),
+    React.createElement(PhaseAverageList,{phaseStats:(phaseStats||[]).map(p=>({...p,avgWorkers:Math.ceil(p.avgWorkers)})),statKey:'avgWorkers',overallAvg:avgWorkers,fmtFn:v=>fmtNum(v,0)})
   );
 }
 
@@ -1444,7 +1480,8 @@ function printReport(results, form) {
       clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
       styleSvgForPrint(clone);
       const legendEl = card.querySelector('.report-chart-legend');
-      out.push({ svg: clone.outerHTML, legend: legendEl ? legendEl.outerHTML : '' });
+      const avgListEl = card.querySelector('.report-chart-avglist');
+      out.push({ svg: clone.outerHTML, legend: legendEl ? legendEl.outerHTML : '', avgList: avgListEl ? avgListEl.outerHTML : '' });
     });
     return out;
   }
@@ -1458,7 +1495,7 @@ function printReport(results, form) {
 
   function phaseRows() {
     return (results.phaseBreakdown||[]).map(ph => `
-      <tr class="phase-hdr-row"><td colspan="5">Phase: ${ph.phaseName}</td></tr>
+      <tr class="phase-hdr-row"><td colspan="5">Phase: ${ph.phaseName}<span class="phase-hdr-dates">${fmtDate(ph.startDate)} – ${fmtDate(ph.endDate)}</span></td></tr>
       <tr class="group-hdr"><td colspan="5" class="mat-lbl">▸ Materials</td></tr>
       ${ph.materials.map(m=>`<tr class="data-row"><td class="indent">${m.name}</td><td>${fmt$(m.budgeted)}</td><td>${fmt$(m.escalated)}</td><td>${diff(m.difference)}</td><td>${fmtPct(m.escPercent)}</td></tr>`).join('')}
       <tr class="subtotal-row mat-sub"><td class="indent-bold">Materials Total</td><td>${fmt$(ph.phaseMaterialTotal.budgeted)}</td><td>${fmt$(ph.phaseMaterialTotal.escalated)}</td><td>${diff(ph.phaseMaterialTotal.difference)}</td><td>${fmtPct(ph.phaseMaterialTotal.escPercent)}</td></tr>
@@ -1514,6 +1551,7 @@ function printReport(results, form) {
         <div class="chart-lbl">${chartLabels[i]||''}</div>
         ${c.legend?`<div class="chart-legend-wrap">${c.legend}</div>`:''}
         <div class="chart-svg">${c.svg}</div>
+        ${c.avgList?`<div class="chart-avg-wrap">${c.avgList}</div>`:''}
       </div>`).join('');
   }
 
@@ -1526,7 +1564,7 @@ function printReport(results, form) {
 <title>Escalation Report — ${form.projectName||form.estimateNumber||''}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Merriweather Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;color:#1e293b;background:#fff;line-height:1.45}
+body{font-family:'Merriweather Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;color:#1e293b;background:#fff;line-height:1.45;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 
 /* Portrait pages for everything except weekly */
 @page{margin:.5in .55in;size:letter portrait}
@@ -1543,11 +1581,11 @@ body{font-family:'Merriweather Sans',-apple-system,BlinkMacSystemFont,'Segoe UI'
 .hdr{background:#1e3a5f;color:#fff;padding:18px 20px;border-radius:8px;margin-bottom:14px}
 .hdr-top{display:flex;justify-content:space-between;align-items:flex-start}
 .hdr h1{font-size:16px;font-weight:700;letter-spacing:-.01em;margin-bottom:1px}
-.hdr .gen{font-size:8px;color:rgba(255,255,255,.5)}
-.hdr-right{text-align:right;font-size:9px;color:rgba(255,255,255,.8);line-height:1.8}
-.hdr-right b{color:#fff}
+.hdr .gen{font-size:8px;font-weight:500;color:#8f9daf}
+.hdr-right{text-align:right;font-size:9px;font-weight:500;color:#d2d8df;line-height:1.8}
+.hdr-right b{color:#fff;font-weight:700}
 .proj-block{border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:8px}
-.proj-label{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.45);margin-bottom:2px}
+.proj-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8394a8;margin-bottom:2px}
 .proj-name{font-size:20px;font-weight:700;color:#fff;letter-spacing:-.01em}
 
 /* INFO STRIP */
@@ -1577,6 +1615,7 @@ td:not(:first-child){text-align:right}
 .neg{color:#16a34a;font-weight:600}
 .sum-table tr:last-child td{font-weight:700;background:#f1f5f9;border-top:1.5px solid #cbd5e1;border-bottom:none}
 .phase-hdr-row td{background:#1e3a5f;color:#fff;font-weight:700;font-size:9px;padding:6px 7px;border-bottom:none}
+.phase-hdr-row .phase-hdr-dates{float:right;font-weight:600;font-size:8px;color:#c7ced7;letter-spacing:.02em}
 .group-hdr td{background:transparent;border-bottom:none;padding:5px 7px 1px;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
 .mat-lbl{color:#7c3aed}.lab-lbl{color:#b91c1c}
 .data-row td{background:#fff}
@@ -1595,6 +1634,7 @@ td:not(:first-child){text-align:right}
 .chart-legend-wrap{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}
 .chart-legend-wrap > div{display:flex!important;align-items:center;gap:4px;font-size:8px!important}
 .chart-svg svg{width:100%!important;height:auto!important;min-height:200px}
+.chart-avg-wrap{page-break-inside:avoid;break-inside:avoid}
 
 /* WEEKLY TABLE — landscape */
 .weekly-section{page-break-before:always;break-before:always}
@@ -1680,13 +1720,25 @@ tr{page-break-inside:avoid;break-inside:avoid}
   const win = window.open('','_blank','width=1000,height=800');
   win.document.write(html);
   win.document.close();
-  win.addEventListener('load', ()=>{ setTimeout(()=>{ win.focus(); win.print(); }, 400); });
+  win.addEventListener('load', ()=>{
+    // Wait for the Merriweather Sans webfont to actually finish loading before printing —
+    // printing mid-swap (fallback font still showing) is what makes the thinner text look
+    // distorted/blurry. document.fonts.ready is the reliable signal; the timeout is just a
+    // safety net in case that promise never resolves for some reason.
+    let printed = false;
+    const doPrint = () => { if (printed) return; printed = true; win.focus(); win.print(); };
+    if (win.document.fonts && win.document.fonts.ready) {
+      win.document.fonts.ready.then(() => setTimeout(doPrint, 150)).catch(() => setTimeout(doPrint, 600));
+    }
+    setTimeout(doPrint, 1200);
+  });
 }
 
 /* ── Results ── */
 function Results({results,formData,onClear,onSave}){
   const phaseOverlapData=results.phaseOverlapData||[];
   const phaseNames=results.phaseNames||[];
+  const phaseStats=results.phaseStats||[];
   const {summary:s,weeklyData,phaseBreakdown}=results;
   const [showWeekly,setShowWeekly]=useState(false);
   const tick=makeTick(weeklyData.length);
@@ -1725,14 +1777,15 @@ function Results({results,formData,onClear,onSave}){
       )
     ),
     React.createElement(PhaseBreakdown,{phaseBreakdown}),
-    React.createElement(PhaseOverlapChart,{phaseOverlapData:phaseOverlapData,phaseNames:phaseNames}),
-    React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.materialSeries||[],title:'Material Cost Breakdown Per Type',subtitle:'Weekly escalated material cost, stacked by material type',palette:['#0d9488','#0f766e','#14b8a6','#115e59','#2dd4bf','#134e4a','#5eead4','#0891b2']}),
-    React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.laborSeries||[],title:'Labor Cost Breakdown Per Type',subtitle:'Weekly escalated labor cost, stacked by labor type',palette:['#ea580c','#c2410c','#f97316','#9a3412','#fb923c','#7c2d12','#fdba74','#dc2626']}),
+    React.createElement(PhaseOverlapChart,{phaseOverlapData:phaseOverlapData,phaseNames:phaseNames,phaseStats:phaseStats}),
+    React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.materialSeries||[],title:'Material Cost Breakdown Per Type',subtitle:'Weekly escalated material cost, stacked by material type',palette:['#0d9488','#0f766e','#14b8a6','#115e59','#2dd4bf','#134e4a','#5eead4','#0891b2'],phaseStats:phaseStats,statKey:'avgMaterial'}),
+    React.createElement(CostBreakdownChart,{weeklyData:weeklyData,series:results.laborSeries||[],title:'Labor Cost Breakdown Per Type',subtitle:'Weekly escalated labor cost, stacked by labor type',palette:['#ea580c','#c2410c','#f97316','#9a3412','#fb923c','#7c2d12','#fdba74','#dc2626'],phaseStats:phaseStats,statKey:'avgLabor'}),
     React.createElement('div',{className:'report-chart-card',style:CARD},
       React.createElement('h3',{style:{fontSize:12,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}},'Worker Hours per Week'),
-      React.createElement(ResponsiveContainer,{width:'100%',height:300},React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44,tickCount:9}),React.createElement(Tooltip,{content:React.createElement(HrsTip,null)}),React.createElement(Bar,{dataKey:'hours',name:'Hours',fill:'#9333ea',radius:[3,3,0,0]}),React.createElement(ReferenceLine,{y:avgHoursPerWeek,stroke:'#f97316',strokeWidth:2,strokeDasharray:'6 4',label:{value:'Avg: '+fmtNum(avgHoursPerWeek,1),position:'insideTopRight',fontSize:11,fontWeight:600,fill:'#f97316'}})))
+      React.createElement(ResponsiveContainer,{width:'100%',height:300},React.createElement(BarChart,{data:weeklyData,margin:{top:8,right:16,left:8,bottom:55}},React.createElement(CartesianGrid,{strokeDasharray:'3 3',stroke:'#f0f0f0'}),React.createElement(XAxis,{dataKey:'weekLabel',interval:0,tick:tick,height:55}),React.createElement(YAxis,{tickFormatter:v=>fmtNum(v,0),tick:{fontSize:11,fill:'#9ca3af'},width:44,tickCount:9}),React.createElement(Tooltip,{content:React.createElement(HrsTip,null)}),React.createElement(Bar,{dataKey:'hours',name:'Hours',fill:'#9333ea',radius:[3,3,0,0]}))),
+      React.createElement(PhaseAverageList,{phaseStats:phaseStats,statKey:'avgHours',overallAvg:avgHoursPerWeek,fmtFn:v=>fmtNum(v,1)})
     ),
-    React.createElement(WorkersPerWeekChart,{weeklyData:weeklyData,blockHours:results.blockHours}),
+    React.createElement(WorkersPerWeekChart,{weeklyData:weeklyData,blockHours:results.blockHours,phaseStats:phaseStats}),
     React.createElement('div',{style:{...CARD,padding:0}},
       React.createElement('button',{onClick:()=>setShowWeekly(v=>!v),style:{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',background:'none',border:'none',cursor:'pointer',fontSize:13,fontWeight:600,color:'#374151'}},
         React.createElement('span',{style:{textTransform:'uppercase',fontSize:11,letterSpacing:'0.05em'}},'Weekly Detail'),
